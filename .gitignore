@@ -17,6 +17,11 @@ ios/
 coverage/
 *.log
 
+# Local generated reports and intermediate artifacts
+.build/
+.codex-finalizer/
+.output/
+
 # Operating-system files
 .DS_Store
 Thumbs.db

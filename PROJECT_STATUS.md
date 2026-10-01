@@ -20,7 +20,7 @@ LingoNest 正在从产品想法进入可执行项目；当前只建立范围、�
 - 建立项目宪法、路线图、MVP、模块地图和学习记录文档。
 - 初始化 Git 仓库，使用 `main` 分支。
 - 添加基础 `.gitignore`，避免将依赖、构建产物和环境变量提交到仓库。
-- 完成第一个基线提交：`ba51da9 docs: establish project planning baseline`。
+- 完成第一个基线提交：`7f7861f docs: establish project planning baseline`。
 
 ## 当前产品决策
 

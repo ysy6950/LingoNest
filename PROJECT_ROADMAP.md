@@ -26,7 +26,20 @@
 - JavaScript、TypeScript、React、React Native、Expo 的关系。
 - 建立学习记录和术语表。
 
-完成标准：
+已完成：
+
+- 建立项目文档入口和新对话阅读顺序。
+- 初始化 Git 仓库和 `main` 分支。
+- 创建基础 `.gitignore`。
+- 完成文档基线提交 `ba51da9`。
+
+下一步：
+
+- 能用自己的话解释仓库、工作区、提交和分支。
+- 能使用 `git status`、`git log` 和 `git show` 读取项目历史。
+- 学习 JavaScript 基础，并把学习内容连接到 LingoNest 的小练习。
+
+阶段完成标准：
 
 - 能用自己的话解释产品范围。
 - 能说出第一阶段做什么、不做什么。

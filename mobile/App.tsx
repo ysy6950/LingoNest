@@ -1,19 +1,57 @@
 import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 export default function App() {
   const [showMeaning, setShowMeaning] = useState(false);
+  const [wordInput, setWordInput] = useState('');
+  const [meaningInput, setMeaningInput] = useState('');
+  const [savedWord, setSavedWord] = useState('persist');
+  const [savedMeaning, setSavedMeaning] = useState(
+    'to continue doing something',
+  );
+
+  function handleAddWord() {
+    const nextWord = wordInput.trim();
+    const nextMeaning = meaningInput.trim();
+
+    if (nextWord === '' || nextMeaning === '') {
+      return;
+    }
+
+    setSavedWord(nextWord);
+    setSavedMeaning(nextMeaning);
+    setWordInput('');
+    setMeaningInput('');
+    setShowMeaning(false);
+  }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>LingoNest</Text>
       <Text style={styles.subtitle}>我的第一个单词卡</Text>
 
+      <TextInput
+        placeholder="输入一个单词，例如 resilient"
+        value={wordInput}
+        onChangeText={setWordInput}
+        style={styles.input}
+        autoCapitalize="none"
+      />
+      <TextInput
+        placeholder="输入英语或中文解释"
+        value={meaningInput}
+        onChangeText={setMeaningInput}
+        style={styles.input}
+      />
+      <Pressable style={styles.addButton} onPress={handleAddWord}>
+        <Text style={styles.buttonText}>添加单词</Text>
+      </Pressable>
+
       <View style={styles.card}>
-        <Text style={styles.word}>persist</Text>
+        <Text style={styles.word}>{savedWord}</Text>
         {showMeaning ? (
-          <Text style={styles.meaning}>to continue doing something</Text>
+          <Text style={styles.meaning}>{savedMeaning}</Text>
         ) : (
           <Text style={styles.hint}>先想想它是什么意思</Text>
         )}
@@ -50,6 +88,24 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 16,
     marginTop: 8,
+  },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    borderWidth: 1,
+    fontSize: 16,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    width: '100%',
+  },
+  addButton: {
+    backgroundColor: '#059669',
+    borderRadius: 12,
+    marginTop: 12,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
   },
   card: {
     alignItems: 'center',

@@ -1,15 +1,32 @@
 import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+
+type WordCard = {
+  id: number;
+  word: string;
+  meaning: string;
+  isRevealed: boolean;
+};
 
 export default function App() {
-  const [showMeaning, setShowMeaning] = useState(false);
   const [wordInput, setWordInput] = useState('');
   const [meaningInput, setMeaningInput] = useState('');
-  const [savedWord, setSavedWord] = useState('persist');
-  const [savedMeaning, setSavedMeaning] = useState(
-    'to continue doing something',
-  );
+  const [cards, setCards] = useState<WordCard[]>([
+    {
+      id: 1,
+      word: 'persist',
+      meaning: 'to continue doing something',
+      isRevealed: false,
+    },
+  ]);
 
   function handleAddWord() {
     const nextWord = wordInput.trim();
@@ -19,11 +36,27 @@ export default function App() {
       return;
     }
 
-    setSavedWord(nextWord);
-    setSavedMeaning(nextMeaning);
+    setCards((currentCards) => [
+      ...currentCards,
+      {
+        id: Date.now(),
+        word: nextWord,
+        meaning: nextMeaning,
+        isRevealed: false,
+      },
+    ]);
     setWordInput('');
     setMeaningInput('');
-    setShowMeaning(false);
+  }
+
+  function toggleMeaning(cardId: number) {
+    setCards((currentCards) =>
+      currentCards.map((card) =>
+        card.id === cardId
+          ? { ...card, isRevealed: !card.isRevealed }
+          : card,
+      ),
+    );
   }
 
   return (
@@ -48,23 +81,23 @@ export default function App() {
         <Text style={styles.buttonText}>添加单词</Text>
       </Pressable>
 
-      <View style={styles.card}>
-        <Text style={styles.word}>{savedWord}</Text>
-        {showMeaning ? (
-          <Text style={styles.meaning}>{savedMeaning}</Text>
-        ) : (
-          <Text style={styles.hint}>先想想它是什么意思</Text>
-        )}
-      </View>
-
-      <Pressable
-        style={styles.button}
-        onPress={() => setShowMeaning((current) => !current)}
-      >
-        <Text style={styles.buttonText}>
-          {showMeaning ? '隐藏解释' : '查看解释'}
-        </Text>
-      </Pressable>
+      <Text style={styles.count}>已添加 {cards.length} 个单词</Text>
+      <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+        {cards.map((card) => (
+          <Pressable
+            key={card.id}
+            style={styles.card}
+            onPress={() => toggleMeaning(card.id)}
+          >
+            <Text style={styles.word}>{card.word}</Text>
+            {card.isRevealed ? (
+              <Text style={styles.meaning}>{card.meaning}</Text>
+            ) : (
+              <Text style={styles.hint}>点击查看解释</Text>
+            )}
+          </Pressable>
+        ))}
+      </ScrollView>
 
       <StatusBar style="auto" />
     </View>
@@ -106,6 +139,19 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 28,
     paddingVertical: 14,
+  },
+  count: {
+    alignSelf: 'flex-start',
+    color: '#6B7280',
+    fontSize: 14,
+    marginTop: 20,
+  },
+  list: {
+    alignSelf: 'stretch',
+    marginTop: 4,
+  },
+  listContent: {
+    paddingBottom: 24,
   },
   card: {
     alignItems: 'center',

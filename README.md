@@ -13,6 +13,7 @@ LingoNest（暂定名）是一款 Android 优先的英语词汇学习应用。�
 5. [docs/product/MODULE_MAP.md](docs/product/MODULE_MAP.md)：产品模块地图。
 6. [docs/decisions/](docs/decisions/)：已经做出的重要架构和产品决策。
 7. [docs/learning/LEARNING_LOG.md](docs/learning/LEARNING_LOG.md)：开发者的学习记录和术语记录。
+8. [docs/learning/TROUBLESHOOTING_LOG.md](docs/learning/TROUBLESHOOTING_LOG.md)：问题、排错过程和解决经验。
 
 ## 协作约定
 

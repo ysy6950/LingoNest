@@ -15,6 +15,8 @@ type WordCard = {
   word: string;
   meaning: string;
   isRevealed: boolean;
+  reviewResult?: 'known' | 'unknown';
+  lastReviewedAt?: string;
 };
 
 const CARDS_STORAGE_KEY = 'lingonest.cards';
@@ -95,6 +97,21 @@ export default function App() {
     );
   }
 
+  function handleReview(cardId: number, result: 'known' | 'unknown') {
+    setCards((currentCards) =>
+      currentCards.map((card) =>
+        card.id === cardId
+          ? {
+              ...card,
+              reviewResult: result,
+              lastReviewedAt: new Date().toISOString(),
+              isRevealed: true,
+            }
+          : card,
+      ),
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>LingoNest</Text>
@@ -120,18 +137,40 @@ export default function App() {
       <Text style={styles.count}>已添加 {cards.length} 个单词</Text>
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
         {cards.map((card) => (
-          <Pressable
-            key={card.id}
-            style={styles.card}
-            onPress={() => toggleMeaning(card.id)}
-          >
-            <Text style={styles.word}>{card.word}</Text>
-            {card.isRevealed ? (
-              <Text style={styles.meaning}>{card.meaning}</Text>
-            ) : (
-              <Text style={styles.hint}>点击查看解释</Text>
-            )}
-          </Pressable>
+          <View key={card.id} style={styles.card}>
+            <Pressable
+              style={styles.cardTapArea}
+              onPress={() => toggleMeaning(card.id)}
+            >
+              <Text style={styles.word}>{card.word}</Text>
+              {card.isRevealed ? (
+                <Text style={styles.meaning}>{card.meaning}</Text>
+              ) : (
+                <Text style={styles.hint}>点击查看解释</Text>
+              )}
+            </Pressable>
+
+            <View style={styles.reviewActions}>
+              <Pressable
+                style={[styles.reviewButton, styles.knownButton]}
+                onPress={() => handleReview(card.id, 'known')}
+              >
+                <Text style={styles.reviewButtonText}>认识</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.reviewButton, styles.unknownButton]}
+                onPress={() => handleReview(card.id, 'unknown')}
+              >
+                <Text style={styles.reviewButtonText}>不认识</Text>
+              </Pressable>
+            </View>
+
+            {card.reviewResult ? (
+              <Text style={styles.reviewStatus}>
+                最近复习：{card.reviewResult === 'known' ? '认识' : '不认识'}
+              </Text>
+            ) : null}
+          </View>
         ))}
       </ScrollView>
 
@@ -204,6 +243,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     width: '100%',
   },
+  cardTapArea: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+  },
   word: {
     color: '#111827',
     fontSize: 40,
@@ -231,5 +274,33 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  reviewActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  reviewButton: {
+    borderRadius: 10,
+    minWidth: 92,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  knownButton: {
+    backgroundColor: '#059669',
+  },
+  unknownButton: {
+    backgroundColor: '#D97706',
+  },
+  reviewButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  reviewStatus: {
+    color: '#6B7280',
+    fontSize: 13,
+    marginTop: 10,
   },
 });

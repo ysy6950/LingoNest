@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Pressable,
   ScrollView,
@@ -16,17 +17,52 @@ type WordCard = {
   isRevealed: boolean;
 };
 
+const CARDS_STORAGE_KEY = 'lingonest.cards';
+
+const initialCards: WordCard[] = [
+  {
+    id: 1,
+    word: 'persist',
+    meaning: 'to continue doing something',
+    isRevealed: false,
+  },
+];
+
 export default function App() {
   const [wordInput, setWordInput] = useState('');
   const [meaningInput, setMeaningInput] = useState('');
-  const [cards, setCards] = useState<WordCard[]>([
-    {
-      id: 1,
-      word: 'persist',
-      meaning: 'to continue doing something',
-      isRevealed: false,
-    },
-  ]);
+  const [cards, setCards] = useState<WordCard[]>(initialCards);
+  const [hasLoadedCards, setHasLoadedCards] = useState(false);
+
+  useEffect(() => {
+    async function loadCards() {
+      try {
+        const savedCards = await AsyncStorage.getItem(CARDS_STORAGE_KEY);
+
+        if (savedCards !== null) {
+          const parsedCards: unknown = JSON.parse(savedCards);
+
+          if (Array.isArray(parsedCards)) {
+            setCards(parsedCards as WordCard[]);
+          }
+        }
+      } catch {
+        setCards(initialCards);
+      } finally {
+        setHasLoadedCards(true);
+      }
+    }
+
+    loadCards();
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedCards) {
+      return;
+    }
+
+    AsyncStorage.setItem(CARDS_STORAGE_KEY, JSON.stringify(cards));
+  }, [cards, hasLoadedCards]);
 
   function handleAddWord() {
     const nextWord = wordInput.trim();

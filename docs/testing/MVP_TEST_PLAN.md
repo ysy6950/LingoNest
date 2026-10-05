@@ -11,7 +11,7 @@
 - 应用目录：`mobile/`
 - 数据：AsyncStorage v2；旧版数据迁移到 v2
 - 测试日期：2026-10-06（自动检查；Android 人工执行时更新）
-- 测试版本或 Commit：`9bd9038`（后续修复后，以实际测试的 Commit 为准）
+- 测试版本或 Commit：Android 人工测试时填写 `git rev-parse --short HEAD` 的输出
 
 ## 明早快速验收顺序
 
@@ -57,21 +57,26 @@
 
 ## 自动检查记录
 
-执行者在代码完成后填写命令与结果，例如：
+2026-10-06 已执行：
 
 ```text
-命令：`cd mobile && npx tsc --noEmit`
+命令：cd mobile 后运行 npm run typecheck
 结果：通过（退出码 0）
 
-命令：`cd mobile && npx expo-doctor`
+命令：cd mobile 后运行 npx expo-doctor
 结果：通过，21/21 checks passed
 
-命令：`cd mobile && node --experimental-strip-types --test tests/reviewScheduler.test.mjs`
-结果：通过，9/9 测试；Node 给出 package type 的性能提示，不影响结果
+命令：cd mobile 后运行 npm test
+结果：通过，14/14 测试（复习规则 9 项、本地数据与迁移 5 项）；Node 给出 package type 的性能提示，不影响结果
 
-命令：`cd mobile && npx expo export --platform android`
+命令：cd mobile 后运行 npx expo export --platform android --clear
 结果：通过，Android JavaScript bundle 导出成功
+
+命令：cd mobile 后运行 npx expo export --platform web
+结果：通过，网页预览可以构建
 ```
+
+手机宽度的网页预览已手动走通：新增词和组、组间移动、浏览卡片翻面、复习一张卡及刷新后的数据保留。网页结果不填写到下方 Android/Expo Go 用例的“实际结果”栏。
 
 自动检查通过只说明静态代码或项目配置满足检查条件；不能将 TC-2.0-001 至 TC-2.0-022 自动标为通过。
 

@@ -2,7 +2,7 @@
 
 最后更新：2026-10-06
 当前阶段：阶段 2，正在交付本地 MVP 2.0
-验收状态：TypeScript、Expo Doctor、复习规则测试和 Android JavaScript bundle 导出已通过；Android/Expo Go 人工回归和 3 分钟计时尚未完成
+验收状态：TypeScript、Expo Doctor、14 个自动测试、Android JavaScript bundle 导出和手机宽度的网页冒烟测试已通过；Android/Expo Go 人工回归和 3 分钟计时尚未完成
 
 ## 一句话状态
 
@@ -31,7 +31,7 @@ LingoNest 已从单页面原型转向四个入口的本地词汇学习应用。�
 
 ## 待验收
 
-1. 已通过 `npx tsc --noEmit`、`npx expo-doctor`（21/21）和 9 个复习调度/迁移测试；命令与结果已写入测试计划。
+1. 已通过 `npm run typecheck`、`npx expo-doctor`（21/21）、`npm test`（14/14）和 Android JavaScript bundle 导出。手机宽度网页预览已验证添加、建组、移动、卡片翻面、复习和页面重新加载后的保存；这不代替 Android 实机测试。
 2. 在 Android/Expo Go 按 [MVP 2.0 测试清单](docs/testing/MVP_TEST_PLAN.md) 验证页面切换、翻面动画、分组、编辑、删除、复习和重启持久化。
 3. 使用已有数据的手机验证旧版记录迁移；不要为测试先清除应用数据。
 4. 记录不看开发说明时，从添加新词到完成一次复习的实测用时，目标为 3 分钟内。

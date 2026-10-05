@@ -176,6 +176,21 @@ export default function App() {
     );
   }
 
+  function wasReviewedToday(lastReviewedAt?: string) {
+    if (!lastReviewedAt) {
+      return false;
+    }
+
+    const reviewedDate = new Date(lastReviewedAt);
+    const today = new Date();
+
+    return (
+      reviewedDate.getFullYear() === today.getFullYear() &&
+      reviewedDate.getMonth() === today.getMonth() &&
+      reviewedDate.getDate() === today.getDate()
+    );
+  }
+
   const visibleCards = cards.filter(
     (card) => card.groupId === selectedGroupId,
   );
@@ -185,6 +200,9 @@ export default function App() {
   ).length;
   const unknownCount = visibleCards.filter(
     (card) => card.reviewResult === 'unknown',
+  ).length;
+  const reviewedTodayCount = visibleCards.filter((card) =>
+    wasReviewedToday(card.lastReviewedAt),
   ).length;
 
   return (
@@ -255,6 +273,7 @@ export default function App() {
       <Text style={styles.count}>当前组有 {visibleCards.length} 个单词</Text>
       <View style={styles.statsCard}>
         <Text style={styles.statsTitle}>学习统计</Text>
+        <Text style={styles.statsText}>今日复习：{reviewedTodayCount}</Text>
         <Text style={styles.statsText}>已复习：{reviewedCount}</Text>
         <Text style={styles.statsText}>认识：{knownCount}</Text>
         <Text style={styles.statsText}>不认识：{unknownCount}</Text>

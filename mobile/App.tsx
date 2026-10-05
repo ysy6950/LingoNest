@@ -112,6 +112,14 @@ export default function App() {
     );
   }
 
+  const reviewedCount = cards.filter((card) => card.reviewResult).length;
+  const knownCount = cards.filter(
+    (card) => card.reviewResult === 'known',
+  ).length;
+  const unknownCount = cards.filter(
+    (card) => card.reviewResult === 'unknown',
+  ).length;
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>LingoNest</Text>
@@ -135,6 +143,12 @@ export default function App() {
       </Pressable>
 
       <Text style={styles.count}>已添加 {cards.length} 个单词</Text>
+      <View style={styles.statsCard}>
+        <Text style={styles.statsTitle}>学习统计</Text>
+        <Text style={styles.statsText}>已复习：{reviewedCount}</Text>
+        <Text style={styles.statsText}>认识：{knownCount}</Text>
+        <Text style={styles.statsText}>不认识：{unknownCount}</Text>
+      </View>
       <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
         {cards.map((card) => (
           <View key={card.id} style={styles.card}>
@@ -220,6 +234,24 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 14,
     marginTop: 20,
+  },
+  statsCard: {
+    alignSelf: 'stretch',
+    backgroundColor: '#E0F2FE',
+    borderRadius: 12,
+    marginTop: 8,
+    padding: 14,
+  },
+  statsTitle: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  statsText: {
+    color: '#334155',
+    fontSize: 14,
+    marginTop: 2,
   },
   list: {
     alignSelf: 'stretch',

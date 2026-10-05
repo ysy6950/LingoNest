@@ -1,37 +1,58 @@
 # LingoNest
 
-LingoNest（暂定名）是一款 Android 优先的英语词汇学习应用。它帮助英语基础较弱的用户快速记录单词、用英语或中文理解单词、建立自己的单词组，并通过及时复习逐步巩固记忆。
+LingoNest（暂定名）是一款 Android 优先的英语词汇学习应用，帮助英语基础较弱的用户快速记录单词、写下英语或中文解释、整理分组，并在合适的时间复习。
 
-当前项目处于 **阶段 0：项目规划与技术地图**。仓库目前只包含项目文档，尚未初始化 Expo，也尚未编写业务代码。
+当前项目正在交付 **本地 MVP 2.0**：四个入口分别负责添加、单词组、复习和统计。数据先保存在手机本地，Android/Expo Go 人工验收尚未完成；项目状态以 [PROJECT_STATUS.md](PROJECT_STATUS.md) 为准。
 
-## 新对话或新协作者的阅读顺序
-
-1. [PROJECT_CONSTITUTION.md](PROJECT_CONSTITUTION.md)：项目最高层治理原则。
-2. [PROJECT_STATUS.md](PROJECT_STATUS.md)：当前已经完成、正在进行和下一步要做的事情。
-3. [PROJECT_ROADMAP.md](PROJECT_ROADMAP.md)：从阶段 0 到阶段 5 的路线。
-4. [docs/product/MVP.md](docs/product/MVP.md)：第一版产品范围和验收标准。
-5. [docs/product/MODULE_MAP.md](docs/product/MODULE_MAP.md)：产品模块地图。
-6. [docs/decisions/](docs/decisions/)：已经做出的重要架构和产品决策。
-7. [docs/learning/LEARNING_LOG.md](docs/learning/LEARNING_LOG.md)：开发者的学习记录和术语记录。
-8. [docs/learning/TROUBLESHOOTING_LOG.md](docs/learning/TROUBLESHOOTING_LOG.md)：问题、排错过程和解决经验。
-9. [docs/testing/MVP_TEST_PLAN.md](docs/testing/MVP_TEST_PLAN.md)：MVP 人工测试和验收记录。
-
-## 协作约定
-
-- 在改变产品范围、技术栈或架构之前，先阅读项目宪法和当前状态。
-- 没有明确要求时，不要直接编写业务代码或初始化新的技术栈。
-- 第一次引入专业术语时，用简单语言解释它所在的软件层次。
-- 每个阶段都必须有可运行、可验证或可阅读的交付结果。
-- 重要决策写入 `docs/decisions/`，进展更新到 `PROJECT_STATUS.md` 和 `PROJECT_ROADMAP.md`。
-- AI 可以辅助分析、解释和生成代码，但实际开发者必须理解关键实现。
-
-## 当前结论
-
-第一阶段采用本地优先方案：
+## 当前核心流程
 
 ```text
-添加单词 → 建立单词组 → 查看单词卡 → 复习 → 保存复习记录
+添加单词 → 选择分组 → 在两列卡片库中搜索/浏览
+                         ↓
+             到期后进入独立复习会话
+                         ↓
+               翻面 → 反馈 → 安排下次复习
 ```
 
-第一阶段暂不接入 AI 和虚拟角色。
+MVP 2.0 的固定间隔是：记住了后 1、3、7、14、30 天逐步延长；再来一次为 10 分钟后；有点模糊为 1 天后并降低阶段。这个规则先追求清楚和可验证，后续再根据真实使用决定是否升级算法。
 
+## 技术概览
+
+- TypeScript、React Native、Expo SDK 57：Android 移动端。
+- Expo Router：四个底部入口、组详情、卡片详情和复习会话的页面路由。
+- Zustand：跨页面共享单词、分组和复习进度。
+- AsyncStorage 2：本地保存 v2 数据，并迁移旧版 `lingonest.cards` / `lingonest.groups`。
+- React Native `FlatList`：单词组中的双列卡片列表。
+- React Native `Animated`：卡片翻面过渡。
+
+当前没有 Supabase、登录、AI、虚拟角色或商城。后续阶段见 [PROJECT_ROADMAP.md](PROJECT_ROADMAP.md)。
+
+## 本地运行
+
+```powershell
+cd D:\Project\LingoNest\mobile
+npm install
+npx expo start
+```
+
+用 Android 手机上的 Expo Go 扫描二维码并打开项目。修改代码后可在 Expo Go 重新加载；遇到缓存问题再使用 `npx expo start -c`。
+
+## 明早验收
+
+请先阅读 [MVP 2.0 测试计划](docs/testing/MVP_TEST_PLAN.md)，不要清除 App 数据。快速顺序是：添加一个词 → 切换四个入口 → 打开分组双列卡片 → 搜索和排序 → 打开卡片详情并翻面 → 修改/移动/删除 → 开始复习并回答 → 查看统计 → 关闭重开验证保存 → 记录 3 分钟实际用时。
+
+自动检查通过不等于手机验收通过。请把每个用例的实际结果写回测试计划；失败时记录设备、Commit、步骤、预期和实际结果。
+
+## 项目文档阅读顺序
+
+1. [PROJECT_CONSTITUTION.md](PROJECT_CONSTITUTION.md)：最高层治理原则。
+2. [PROJECT_STATUS.md](PROJECT_STATUS.md)：当前状态、未验收项目和接续规则。
+3. [PROJECT_ROADMAP.md](PROJECT_ROADMAP.md)：阶段路线和完成标准。
+4. [docs/product/MVP.md](docs/product/MVP.md)：MVP 2.0 产品范围。
+5. [docs/testing/MVP_TEST_PLAN.md](docs/testing/MVP_TEST_PLAN.md)：明早可执行的人工验收清单。
+6. [docs/decisions/](docs/decisions/)：重要技术和产品决策。
+7. [docs/learning/](docs/learning/)：实际遇到的概念与问题。
+
+## 后续方向
+
+阶段 3 评估 Supabase、PostgreSQL、登录和云端同步；阶段 4 通过服务端安全调用 AI 生成可检查的解释、例句、关联词和练习；阶段 5 在学习闭环稳定后评估游戏化、角色、商城和 Android 发布展示。

@@ -2,12 +2,11 @@ import { useMemo, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getVisibleGroupCards, type CardSortMode } from '../../cardCollection';
 import { WordPreviewCard } from '../../components/WordPreviewCard';
 import { colors, radius, spacing } from '../../components/theme';
 import { isReviewDue } from '../../reviewScheduler';
 import { useLingoStore, type WordCard } from '../../store/useLingoStore';
-
-type SortMode = 'newest' | 'az' | 'due';
 
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,26 +15,15 @@ export default function GroupDetailScreen() {
   const cards = useLingoStore((state) => state.cards);
   const reviews = useLingoStore((state) => state.reviews);
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<SortMode>('newest');
+  const [sort, setSort] = useState<CardSortMode>('newest');
   const group = groups.find((item) => item.id === groupId);
   const groupCards = cards.filter((card) => card.groupId === groupId);
   const dueCount = groupCards.filter((card) => isReviewDue(reviews[card.id], Date.now())).length;
 
-  const visibleCards = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase();
-    const filtered = groupCards.filter((card) =>
-      !query || card.word.toLocaleLowerCase().includes(query) || card.meaning.toLocaleLowerCase().includes(query),
-    );
-    return [...filtered].sort((a, b) => {
-      if (sort === 'az') return a.word.localeCompare(b.word, 'en');
-      if (sort === 'due') {
-        const dueA = isReviewDue(reviews[a.id], Date.now()) ? 1 : 0;
-        const dueB = isReviewDue(reviews[b.id], Date.now()) ? 1 : 0;
-        return dueB - dueA || b.createdAt - a.createdAt;
-      }
-      return b.createdAt - a.createdAt;
-    });
-  }, [cards, groupId, reviews, search, sort]);
+  const visibleCards = useMemo(
+    () => getVisibleGroupCards(cards, groupId, reviews, search, sort),
+    [cards, groupId, reviews, search, sort],
+  );
 
   function renderCard({ item }: { item: WordCard }) {
     return (
@@ -44,7 +32,7 @@ export default function GroupDetailScreen() {
           word={item.word}
           meaning={item.meaning}
           due={isReviewDue(reviews[item.id], Date.now())}
-          onPress={() => router.push({ pathname: '/cards/[id]', params: { id: String(item.id) } })}
+          onPress={() => router.push({ pathname: '/cards/[id]', params: { id: String(item.id), sort } })}
         />
       </View>
     );

@@ -16,7 +16,7 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: { height: 62, paddingTop: 7, paddingBottom: 7, backgroundColor: colors.surface, borderTopColor: colors.border },
+        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
         tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 23, lineHeight: 26 }}>{tabIcons[route.name]}</Text>,
       })}

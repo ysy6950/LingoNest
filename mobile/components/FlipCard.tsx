@@ -113,38 +113,40 @@ export function FlipCard({
       }
       accessibilityHint="点击翻转单词卡"
       onPress={flip}
-      style={[styles.frame, style]}
       testID={testID}
     >
       <Animated.View
         style={[
-          styles.content,
+          styles.frame,
+          style,
           {
             opacity,
             transform: [{ perspective: 900 }, { rotateY }],
           },
         ]}
       >
-        <View style={styles.topRow}>
-          <View style={styles.accentLine} />
-          <Text style={styles.sideLabel}>{displayedRevealed ? '释义' : '单词'}</Text>
-          <Text style={styles.sideCount}>{displayedRevealed ? '02 / 02' : '01 / 02'}</Text>
-        </View>
+        <View style={styles.content}>
+          <View style={styles.topRow}>
+            <View style={styles.accentLine} />
+            <Text style={styles.sideLabel}>{displayedRevealed ? '释义' : '单词'}</Text>
+            <Text style={styles.sideCount}>{displayedRevealed ? '02 / 02' : '01 / 02'}</Text>
+          </View>
 
-        <View style={styles.center}>
-          <Text
-            selectable
-            style={displayedRevealed ? styles.meaning : styles.word}
-          >
-            {displayedRevealed ? meaning : word}
-          </Text>
-        </View>
+          <View style={styles.center}>
+            <Text
+              selectable
+              style={displayedRevealed ? styles.meaning : styles.word}
+            >
+              {displayedRevealed ? meaning : word}
+            </Text>
+          </View>
 
-        <View style={styles.footer}>
-          <View style={styles.footerDot} />
-          <Text style={styles.hint}>
-            {displayedRevealed ? '轻点翻回单词' : '轻点查看解释'}
-          </Text>
+          <View style={styles.footer}>
+            <View style={styles.footerDot} />
+            <Text style={styles.hint}>
+              {displayedRevealed ? '轻点翻回单词' : '轻点查看解释'}
+            </Text>
+          </View>
         </View>
       </Animated.View>
     </Pressable>
@@ -157,13 +159,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.card,
     borderWidth: 1,
-    elevation: 2,
     minHeight: 260,
     overflow: 'hidden',
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
   },
   content: {
     flex: 1,

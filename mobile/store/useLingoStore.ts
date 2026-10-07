@@ -26,6 +26,7 @@ export const DEFAULT_GROUP_ID = 1;
 export const UNGROUPED_GROUP_ID = 0;
 
 const STORAGE_KEY = 'lingonest.v2';
+const LATEST_RECOVERY_KEY = 'lingonest.pre-restore.latest';
 const LEGACY_CARDS_KEY = 'lingonest.cards';
 const LEGACY_GROUPS_KEY = 'lingonest.groups';
 const LEGACY_DEMO_SEEDED_KEY = 'lingonest.demo-seeded';
@@ -43,13 +44,15 @@ const DEMO_WORDS = [
   { id: -4, word: 'immerse', meaning: 'to become deeply involved in something' },
 ] as const;
 
-type Snapshot = {
+export type Snapshot = {
   version: 2;
   cards: WordCard[];
   groups: WordGroup[];
   reviews: Record<number, ReviewState>;
   selectedGroupId: number;
 };
+
+export type RestoreResult = 'restored' | 'changed' | 'invalid' | 'save-failed';
 
 type LingoState = {
   cards: WordCard[];
@@ -59,9 +62,13 @@ type LingoState = {
   isHydrated: boolean;
   isHydrating: boolean;
   isSaving: boolean;
+  isRestoring: boolean;
   error: string | null;
   hydrate: () => Promise<void>;
   retrySave: () => Promise<boolean>;
+  exportSnapshot: () => Snapshot | null;
+  latestRecoverySnapshot: () => Promise<Snapshot | null>;
+  restoreFromBackup: (raw: unknown, expectedLocal: string) => Promise<RestoreResult>;
   addCard: (word: string, meaning: string, groupId: number) => number | null;
   editCard: (cardId: number, word: string, meaning: string) => boolean;
   deleteCard: (cardId: number) => void;
@@ -77,15 +84,13 @@ let latestSaveRevision = 0;
 
 /** The v2 snapshot is saved before hydration is exposed to the UI. */
 export const useLingoStore = create<LingoState>((set, get) => {
-  function saveCurrentState(): Promise<boolean> {
+  function currentSnapshot(): Snapshot {
     const { cards, groups, reviews, selectedGroupId } = get();
-    const snapshot: Snapshot = {
-      version: 2,
-      cards,
-      groups,
-      reviews,
-      selectedGroupId,
-    };
+    return { version: 2, cards, groups, reviews, selectedGroupId };
+  }
+
+  function saveCurrentState(): Promise<boolean> {
+    const snapshot = currentSnapshot();
     const revision = ++latestSaveRevision;
     set({ isSaving: true });
 
@@ -114,6 +119,7 @@ export const useLingoStore = create<LingoState>((set, get) => {
     isHydrated: false,
     isHydrating: false,
     isSaving: false,
+    isRestoring: false,
     error: null,
 
     hydrate: async () => {
@@ -162,9 +168,61 @@ export const useLingoStore = create<LingoState>((set, get) => {
     },
 
     retrySave: () => {
-      if (!get().isHydrated) return Promise.resolve(false);
+      if (!get().isHydrated || get().isRestoring) return Promise.resolve(false);
       // Read the current state, not the snapshot from the failed attempt.
       return saveCurrentState();
+    },
+
+    exportSnapshot: () => get().isHydrated ? readV2(JSON.stringify(currentSnapshot())) : null,
+
+    latestRecoverySnapshot: async () => {
+      const key = await AsyncStorage.getItem(LATEST_RECOVERY_KEY);
+      if (!key) return null;
+      const raw = await AsyncStorage.getItem(key);
+      if (!raw) return null;
+      try {
+        return readV2(raw);
+      } catch {
+        return null;
+      }
+    },
+
+    restoreFromBackup: async (raw, expectedLocal) => {
+      if (!get().isHydrated || get().isRestoring) return 'changed';
+      let snapshot: Snapshot;
+      try {
+        snapshot = readV2(JSON.stringify(raw));
+      } catch {
+        return 'invalid';
+      }
+      if (JSON.stringify(currentSnapshot()) !== expectedLocal) return 'changed';
+
+      set({ isRestoring: true });
+      try {
+        // All pending local writes finish before replacing the current copy.
+        await writeQueue.catch(() => undefined);
+        if (JSON.stringify(currentSnapshot()) !== expectedLocal) return 'changed';
+
+        // Keep a recovery copy even when the cloud data is valid. A failed
+        // write leaves the current v2 snapshot untouched.
+        const recoveryKey = `lingonest.pre-restore.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+        await AsyncStorage.setItem(recoveryKey, expectedLocal);
+        await AsyncStorage.setItem(LATEST_RECOVERY_KEY, recoveryKey);
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+        set({
+          cards: snapshot.cards,
+          groups: snapshot.groups,
+          reviews: snapshot.reviews,
+          selectedGroupId: snapshot.selectedGroupId,
+          error: null,
+        });
+        return 'restored';
+      } catch {
+        set({ error: '恢复失败，本机原有数据未被清除。请重试。' });
+        return 'save-failed';
+      } finally {
+        set({ isRestoring: false });
+      }
     },
 
     addCard: (word, meaning, groupId) => {
@@ -172,7 +230,7 @@ export const useLingoStore = create<LingoState>((set, get) => {
       const nextWord = word.trim();
       const nextMeaning = meaning.trim();
       if (
-        !current.isHydrated ||
+        !current.isHydrated || current.isRestoring ||
         !nextWord ||
         !nextMeaning ||
         !current.groups.some((group) => group.id === groupId)
@@ -200,7 +258,7 @@ export const useLingoStore = create<LingoState>((set, get) => {
       const nextWord = word.trim();
       const nextMeaning = meaning.trim();
       if (
-        !current.isHydrated ||
+        !current.isHydrated || current.isRestoring ||
         !nextWord ||
         !nextMeaning ||
         !current.cards.some((card) => card.id === cardId)
@@ -217,7 +275,7 @@ export const useLingoStore = create<LingoState>((set, get) => {
 
     deleteCard: (cardId) => {
       const current = get();
-      if (!current.isHydrated || !current.cards.some((card) => card.id === cardId)) return;
+      if (!current.isHydrated || current.isRestoring || !current.cards.some((card) => card.id === cardId)) return;
       const reviews = { ...current.reviews };
       delete reviews[cardId];
       set({
@@ -230,7 +288,7 @@ export const useLingoStore = create<LingoState>((set, get) => {
     moveCard: (cardId, groupId) => {
       const current = get();
       if (
-        !current.isHydrated ||
+        !current.isHydrated || current.isRestoring ||
         !current.cards.some((card) => card.id === cardId) ||
         !current.groups.some((group) => group.id === groupId)
       ) return;
@@ -246,7 +304,7 @@ export const useLingoStore = create<LingoState>((set, get) => {
       const current = get();
       const nextName = name.trim();
       if (
-        !current.isHydrated ||
+        !current.isHydrated || current.isRestoring ||
         !nextName ||
         current.groups.some((group) => group.name.toLocaleLowerCase() === nextName.toLocaleLowerCase())
       ) return null;
@@ -263,7 +321,7 @@ export const useLingoStore = create<LingoState>((set, get) => {
     selectGroup: (groupId) => {
       const current = get();
       if (
-        !current.isHydrated ||
+        !current.isHydrated || current.isRestoring ||
         current.selectedGroupId === groupId ||
         !current.groups.some((group) => group.id === groupId)
       ) return;
@@ -274,7 +332,7 @@ export const useLingoStore = create<LingoState>((set, get) => {
     answerReview: (cardId, result, nowMs = Date.now()) => {
       const current = get();
       if (
-        !current.isHydrated ||
+        !current.isHydrated || current.isRestoring ||
         !current.cards.some((card) => card.id === cardId) ||
         !['again', 'hard', 'remembered'].includes(result)
       ) return;

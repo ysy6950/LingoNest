@@ -6,7 +6,7 @@ import { getVisibleGroupCards, type CardSortMode } from '../../cardCollection';
 import { AppButton } from '../../components/AppButton';
 import { AppTextField } from '../../components/AppTextField';
 import { FlipCard } from '../../components/FlipCard';
-import { SwipeableCard } from '../../components/SwipeableCard';
+import { SwipeableCard, type SwipeableCardHandle } from '../../components/SwipeableCard';
 import { colors, radius, spacing } from '../../components/theme';
 import { isReviewDue } from '../../reviewScheduler';
 import { useLingoStore } from '../../store/useLingoStore';
@@ -32,6 +32,7 @@ export default function CardDetailScreen() {
   const revealed = face.cardId === cardId && face.revealed;
   const ignoreFlipUntil = useRef(0);
   const focusedRef = useRef(false);
+  const swipeableRef = useRef<SwipeableCardHandle>(null);
   const [menuPage, setMenuPage] = useState<MenuPage>(null);
   const [draftWord, setDraftWord] = useState('');
   const [draftMeaning, setDraftMeaning] = useState('');
@@ -39,7 +40,10 @@ export default function CardDetailScreen() {
 
   useFocusEffect(useCallback(() => {
     focusedRef.current = true;
-    return () => { focusedRef.current = false; };
+    return () => {
+      focusedRef.current = false;
+      swipeableRef.current?.reset();
+    };
   }, []));
 
   const sortMode: CardSortMode = sort === 'az' || sort === 'due' ? sort : 'newest';
@@ -97,6 +101,7 @@ export default function CardDetailScreen() {
         <Text style={styles.title}>单词卡</Text>
         <Text style={styles.subtitle}>收录于「{group?.name ?? '未知分组'}」</Text>
         <SwipeableCard
+          ref={swipeableRef}
           cardKey={cardId}
           onSwipeLeft={next ? () => showCard(next.id) : undefined}
           onSwipeRight={previous ? () => showCard(previous.id) : undefined}
@@ -114,14 +119,14 @@ export default function CardDetailScreen() {
           />
         </SwipeableCard>
         <View style={styles.browseRow}>
-          <Pressable onPress={() => previous && showCard(previous.id)} disabled={!previous} accessibilityRole="button" accessibilityLabel="上一张单词卡" style={[styles.browseButton, !previous && styles.browseButtonDisabled]}>
+          <Pressable onPress={() => swipeableRef.current?.slideTo('previous')} disabled={!previous} accessibilityRole="button" accessibilityLabel="上一张单词卡" style={[styles.browseButton, !previous && styles.browseButtonDisabled]}>
             <Text style={[styles.browseArrow, !previous && styles.browseArrowDisabled]}>←</Text>
           </Pressable>
           <View style={styles.browseCenter}>
             <Text style={styles.browseCount}>{currentIndex + 1} / {siblings.length}</Text>
             <Text style={styles.browseHint}>左右滑动切换 · 轻点翻面</Text>
           </View>
-          <Pressable onPress={() => next && showCard(next.id)} disabled={!next} accessibilityRole="button" accessibilityLabel="下一张单词卡" style={[styles.browseButton, !next && styles.browseButtonDisabled]}>
+          <Pressable onPress={() => swipeableRef.current?.slideTo('next')} disabled={!next} accessibilityRole="button" accessibilityLabel="下一张单词卡" style={[styles.browseButton, !next && styles.browseButtonDisabled]}>
             <Text style={[styles.browseArrow, !next && styles.browseArrowDisabled]}>→</Text>
           </Pressable>
         </View>

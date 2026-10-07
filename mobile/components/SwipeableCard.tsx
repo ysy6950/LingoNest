@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from 'react';
 import {
   Animated,
   Easing,
@@ -25,18 +25,23 @@ type SwipeableCardProps = {
   style?: StyleProp<ViewStyle>;
 };
 
+export type SwipeableCardHandle = {
+  slideTo: (direction: 'next' | 'previous') => void;
+  reset: () => void;
+};
+
 /**
  * Wrap a card with horizontal navigation. It claims only a deliberate
  * horizontal drag, leaving taps for FlipCard and vertical drags for ScrollView.
  */
-export function SwipeableCard({
+export const SwipeableCard = forwardRef<SwipeableCardHandle, SwipeableCardProps>(function SwipeableCard({
   onSwipeLeft,
   onSwipeRight,
   onSwipeStart,
   cardKey,
   children,
   style,
-}: SwipeableCardProps) {
+}: SwipeableCardProps, ref) {
   const { width } = useWindowDimensions();
   const translation = useRef(new Animated.Value(0)).current;
   const callbacks = useRef({ onSwipeLeft, onSwipeRight, onSwipeStart, width });
@@ -44,6 +49,38 @@ export function SwipeableCard({
   const arrivalFrom = useRef(0);
   const mounted = useRef(true);
   callbacks.current = { onSwipeLeft, onSwipeRight, onSwipeStart, width };
+
+  function reset() {
+    translation.stopAnimation();
+    arrivalFrom.current = 0;
+    transitioning.current = false;
+    translation.setValue(0);
+  }
+
+  function startSlide(direction: -1 | 1) {
+    if (transitioning.current) return;
+    const navigate = direction < 0
+      ? callbacks.current.onSwipeLeft
+      : callbacks.current.onSwipeRight;
+    if (!navigate) return;
+
+    transitioning.current = true;
+    arrivalFrom.current = -direction;
+    Animated.timing(translation, {
+      toValue: direction * callbacks.current.width,
+      duration: 170,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished && mounted.current) navigate();
+      else reset();
+    });
+  }
+
+  useImperativeHandle(ref, () => ({
+    slideTo: (direction) => startSlide(direction === 'next' ? -1 : 1),
+    reset,
+  }));
 
   const responder = useRef(
     PanResponder.create({
@@ -73,20 +110,7 @@ export function SwipeableCard({
           : callbacks.current.onSwipeRight;
 
         if (horizontal && navigate) {
-          transitioning.current = true;
-          arrivalFrom.current = -direction;
-          Animated.timing(translation, {
-            toValue: direction * callbacks.current.width,
-            duration: 170,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }).start(({ finished }) => {
-            if (finished && mounted.current) navigate();
-            else {
-              arrivalFrom.current = 0;
-              transitioning.current = false;
-            }
-          });
+          startSlide(direction);
         } else {
           Animated.spring(translation, {
             toValue: 0,
@@ -139,4 +163,4 @@ export function SwipeableCard({
       {children}
     </Animated.View>
   );
-}
+});

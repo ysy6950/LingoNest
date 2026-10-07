@@ -1,5 +1,7 @@
+import { router } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppButton } from '../../components/AppButton';
 import { colors, radius, spacing } from '../../components/theme';
 import { isReviewDue } from '../../reviewScheduler';
 import { useLingoStore } from '../../store/useLingoStore';
@@ -38,6 +40,11 @@ export default function StatsScreen() {
           <View style={styles.detailRow}><Text style={styles.detailLabel}>累计反馈次数</Text><Text style={styles.detailValue}>{totalAnswers}</Text></View>
           <Text style={styles.detailHint}>“今日复习卡片”按设备本地日期计算，同一张卡在一天内复习多次只计一张。</Text>
         </View>
+        <View style={styles.detailCard}>
+          <Text style={styles.detailTitle}>保护学习记录</Text>
+          <Text style={styles.detailHint}>可以选择用邮箱登录，把本机单词和复习进度备份到云端。未登录时仍可离线学习。</Text>
+          <AppButton label="云端备份与恢复" variant="secondary" onPress={() => router.push('/cloud-backup')} style={styles.cloudButton} />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -58,4 +65,5 @@ const styles = StyleSheet.create({
   detailTitle: { color: colors.ink, fontSize: 17, fontWeight: '800', marginBottom: 6 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10 }, detailLabel: { color: colors.inkSoft, fontSize: 14 }, detailValue: { color: colors.ink, fontSize: 15, fontWeight: '800' },
   detailHint: { color: colors.muted, fontSize: 12, lineHeight: 19, marginTop: 12 },
+  cloudButton: { marginTop: 16 },
 });

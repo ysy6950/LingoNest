@@ -12,6 +12,7 @@ export default function RootLayout() {
   const isHydrating = useLingoStore((state) => state.isHydrating);
   const error = useLingoStore((state) => state.error);
   const isSaving = useLingoStore((state) => state.isSaving);
+  const isRestoring = useLingoStore((state) => state.isRestoring);
   const retrySave = useLingoStore((state) => state.retrySave);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function RootLayout() {
         <Stack.Screen name="groups/[id]" />
         <Stack.Screen name="cards/[id]" />
         <Stack.Screen name="review-session" />
+        <Stack.Screen name="cloud-backup" />
       </Stack>
       {error ? (
         <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
@@ -48,6 +50,12 @@ export default function RootLayout() {
             </Pressable>
           </View>
         </SafeAreaView>
+      ) : null}
+      {isRestoring ? (
+        <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(245, 247, 244, 0.92)' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ marginTop: 16, color: colors.ink }}>正在安全恢复本地单词…</Text>
+        </View>
       ) : null}
     </View>
     </SafeAreaProvider>

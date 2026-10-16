@@ -2,7 +2,7 @@
 
 LingoNest（暂定名）是一款 Android 优先的英语词汇学习应用，帮助英语基础较弱的用户快速记录单词、写下英语或中文解释、整理分组，并在合适的时间复习。
 
-当前项目正在交付 **3.0 电脑本地后端**。3.0a 已新增一个可在电脑运行的健康检查服务；手机端仍负责添加、单词组、复习和统计，不依赖后端完成离线学习。原 Supabase 云端入口尚未替换，真实云端验收未完成；项目状态以 [PROJECT_STATUS.md](PROJECT_STATUS.md) 为准。
+当前项目正在交付 **3.0 电脑本地后端**。3.0b 已新增 SQLite 测试备份接口；手机端仍负责添加、单词组、复习和统计，不依赖后端完成离线学习。原 Supabase 云端入口尚未替换，真实云端验收未完成；项目状态以 [PROJECT_STATUS.md](PROJECT_STATUS.md) 为准。
 
 ## 当前核心流程
 
@@ -28,7 +28,7 @@ MVP 2.0 的固定间隔是：记住了后 1、3、7、14、30 天逐步延长；
 - AsyncStorage 2：本地保存 v2 数据，并迁移旧版 `lingonest.cards` / `lingonest.groups`。
 - React Native `FlatList`：单词组中的双列卡片列表。
 - React Native `Animated`：卡片翻面过渡。
-- Node.js、TypeScript、Express：3.0a 电脑本地健康检查服务；SQLite 和手机连接属于后续小阶段。
+- Node.js、TypeScript、Express、SQLite：3.0b 电脑本地健康检查与开发用备份接口；手机连接属于后续小阶段。
 - Supabase Auth、PostgreSQL、Expo SecureStore：旧云端备份方案的代码仍在仓库，路线已暂停，未通过真实云端验收。
 
 当前没有 AI、虚拟角色或商城。3.0 已转向电脑本地后端；它是开发与学习环境，不是公开上线的服务。手机离线学习仍可使用。后续阶段见 [PROJECT_ROADMAP.md](PROJECT_ROADMAP.md)。
@@ -43,7 +43,7 @@ npx expo start
 
 用 Android 手机上的 Expo Go 扫描二维码并打开项目。修改代码后可在 Expo Go 重新加载；遇到缓存问题再使用 `npx expo start -c`。
 
-电脑本地后端独立运行，见 [server/README.md](server/README.md)。3.0a 的 `GET /health` 可在本机浏览器验证，当前手机还未连接它。
+电脑本地后端独立运行，见 [server/README.md](server/README.md)。`GET /health` 可在本机浏览器验证，`GET /backup` 和 `PUT /backup` 可用测试数据验证数据库；当前手机还未连接它。
 
 ## 验收
 
@@ -51,7 +51,7 @@ npx expo start
 
 自动检查通过不等于手机验收通过。请把每个用例的实际结果写回测试计划；失败时记录设备、Commit、步骤、预期和实际结果。
 
-3.0a 的本地接口由 `server/` 的自动测试验证；项目拥有者仍需按运行说明亲自确认。原 [MVP_3.md](docs/product/MVP_3.md) 与 [CLOUD_3_TEST_PLAN.md](docs/testing/CLOUD_3_TEST_PLAN.md) 是暂停的云端历史方案，不代表真实账号或双设备测试已通过。
+3.0b 的本地接口由 `server/` 的自动测试验证；项目拥有者仍需按运行说明亲自确认数据库重启后保留数据。原 [MVP_3.md](docs/product/MVP_3.md) 与 [CLOUD_3_TEST_PLAN.md](docs/testing/CLOUD_3_TEST_PLAN.md) 是暂停的云端历史方案，不代表真实账号或双设备测试已通过。
 
 ## 项目文档阅读顺序
 

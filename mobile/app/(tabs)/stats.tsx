@@ -42,8 +42,9 @@ export default function StatsScreen() {
         </View>
         <View style={styles.detailCard}>
           <Text style={styles.detailTitle}>保护学习记录</Text>
-          <Text style={styles.detailHint}>可以选择用邮箱登录，把本机单词和复习进度备份到云端。未登录时仍可离线学习。</Text>
-          <AppButton label="云端备份与恢复" variant="secondary" onPress={() => router.push('/cloud-backup')} style={styles.cloudButton} />
+          <Text style={styles.detailHint}>当前开发阶段先测试手机与电脑的连接。连接检查不会读取或上传本机单词。</Text>
+          <AppButton label="检查电脑连接" variant="secondary" onPress={() => router.push('/local-server')} style={styles.cloudButton} />
+          <Text style={styles.detailHint}>旧云端备份方案已暂停，尚未连接到新的本地后端。</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

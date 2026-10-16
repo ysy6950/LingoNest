@@ -40,6 +40,7 @@ export default function RootLayout() {
         <Stack.Screen name="cards/[id]" />
         <Stack.Screen name="review-session" />
         <Stack.Screen name="cloud-backup" />
+        <Stack.Screen name="local-server" />
       </Stack>
       {error ? (
         <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>

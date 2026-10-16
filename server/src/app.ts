@@ -2,12 +2,16 @@ import express from 'express';
 import type { BackupStore } from './backupStore.js';
 import { isValidSnapshot, MAX_SNAPSHOT_BYTES } from './snapshot.js';
 
-export function createApp(backupStore?: BackupStore) {
+export function createApp(backupStore?: BackupStore, lanHealthOnly = false) {
   const app = express();
   app.use(express.json({ limit: '6mb' }));
 
   app.get('/health', (_request, response) => {
-    response.json({ status: 'ok', service: 'lingonest-local-server' });
+    response.json({
+      status: 'ok',
+      service: 'lingonest-local-server',
+      ...(lanHealthOnly ? { mode: 'lan-health-only' } : {}),
+    });
   });
 
   if (backupStore) {

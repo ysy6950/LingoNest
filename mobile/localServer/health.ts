@@ -31,7 +31,7 @@ export async function checkLocalServer(address: string, timeoutMs = 5000): Promi
       typeof body === 'object' && body !== null &&
       'status' in body && body.status === 'ok' &&
       'service' in body && body.service === 'lingonest-local-server' &&
-      'mode' in body && body.mode === 'lan-health-only'
+      'mode' in body && (body.mode === 'lan-health-only' || body.mode === 'lan-backup')
     ) return { kind: 'ok' };
     return { kind: 'unexpected-response' };
   } catch {

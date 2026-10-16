@@ -42,9 +42,9 @@ export default function StatsScreen() {
         </View>
         <View style={styles.detailCard}>
           <Text style={styles.detailTitle}>保护学习记录</Text>
-          <Text style={styles.detailHint}>当前开发阶段先测试手机与电脑的连接。连接检查不会读取或上传本机单词。</Text>
-          <AppButton label="检查电脑连接" variant="secondary" onPress={() => router.push('/local-server')} style={styles.cloudButton} />
-          <Text style={styles.detailHint}>旧云端备份方案已暂停，尚未连接到新的本地后端。</Text>
+          <Text style={styles.detailHint}>主动备份到自己的电脑，或从电脑恢复单词和复习进度。平时继续离线学习。</Text>
+          <AppButton label="电脑备份与恢复" variant="secondary" onPress={() => router.push('/local-backup')} style={styles.cloudButton} />
+          <AppButton label="检查电脑连接" variant="quiet" compact onPress={() => router.push('/local-server')} />
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -50,7 +50,7 @@ test('backup survives restart and stale writes do not replace it', async () => {
     running = await start(store);
     const empty = await fetch(`${running.url}/backup`);
     assert.equal(empty.status, 200);
-    assert.deepEqual(await empty.json(), { backup: null });
+    assert.deepEqual(await empty.json(), { serverId: store.serverId, backup: null });
 
     const first = await put(running.url, { snapshot, expectedRevision: 0 });
     assert.equal(first.status, 200);

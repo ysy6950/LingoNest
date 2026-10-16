@@ -253,3 +253,25 @@ test('cloud uploads require the latest revision known by this device', async () 
   assert.equal(expectedUploadRevision(3, null), null);
   assert.equal(expectedUploadRevision(4, 3), null);
 });
+
+test('restore failure at every device write preserves current words and survives reopening', async () => {
+  for (const failAt of [1, 2, 3]) {
+    const storage = device({ 'lingonest.demo-seeded': 'true' });
+    const store = await openStore(storage);
+    store.getState().addCard('keep', '原手机单词', 1);
+    await waitForSave(store);
+    const before = store.getState().exportSnapshot();
+    const incoming = { ...before, cards: [{ ...before.cards[0], word: 'replacement' }] };
+    const originalWrite = storage.setItem;
+    let writes = 0;
+    storage.setItem = async (...args) => {
+      if (++writes === failAt) throw new Error('disk full');
+      return originalWrite(...args);
+    };
+    assert.equal(await store.getState().restoreFromBackup(incoming, JSON.stringify(before)), 'save-failed');
+    assert.deepEqual(storage.snapshot(), before);
+    assert.deepEqual(store.getState().exportSnapshot(), before);
+    const reopened = await openStore(storage);
+    assert.deepEqual(reopened.getState().exportSnapshot(), before);
+  }
+});

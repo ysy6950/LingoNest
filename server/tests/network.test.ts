@@ -15,7 +15,7 @@ test('LAN mode accepts only private IPv4 addresses', () => {
 });
 
 test('health-only app never exposes backup routes', async () => {
-  const server = createApp(undefined, true).listen(0, '127.0.0.1');
+  const server = createApp(undefined, { lanHealthOnly: true }).listen(0, '127.0.0.1');
   try {
     await once(server, 'listening');
     const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

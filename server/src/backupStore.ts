@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import Database from 'better-sqlite3';
+import { randomUUID } from 'node:crypto';
 
 export type Backup = {
   revision: number;
@@ -9,6 +10,7 @@ export type Backup = {
 };
 
 export type BackupStore = {
+  serverId: string;
   read: () => Backup | null;
   save: (snapshot: unknown, expectedRevision: number) => Backup | null;
   close: () => void;
@@ -20,6 +22,7 @@ export function openBackupStore(path: string): BackupStore {
   mkdirSync(dirname(path), { recursive: true });
   const db = new Database(path);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS backup (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       revision INTEGER NOT NULL CHECK (revision > 0),
@@ -27,6 +30,8 @@ export function openBackupStore(path: string): BackupStore {
       updated_at TEXT NOT NULL
     )
   `);
+  db.prepare('INSERT OR IGNORE INTO metadata (key, value) VALUES (?, ?)').run('server_id', randomUUID());
+  const serverId = (db.prepare('SELECT value FROM metadata WHERE key = ?').get('server_id') as { value: string }).value;
 
   const select = db.prepare('SELECT revision, snapshot, updated_at FROM backup WHERE id = 1');
   const insert = db.prepare('INSERT OR IGNORE INTO backup (id, revision, snapshot, updated_at) VALUES (1, 1, ?, ?)');
@@ -51,6 +56,7 @@ export function openBackupStore(path: string): BackupStore {
   });
 
   return {
+    serverId,
     read,
     save: (snapshot, expectedRevision) => saveTransaction(snapshot, expectedRevision),
     close: () => db.close(),

@@ -40,10 +40,11 @@ export function isValidSnapshot(value: unknown): boolean {
   }
   if (!groupIds.has(value.selectedGroupId)) return false;
   if (value.cards.some((card) => !groupIds.has(card.groupId))) return false;
+  if (value.cards.some((card) => !Object.hasOwn(value.reviews as object, String(card.id)))) return false;
 
   for (const [id, review] of Object.entries(value.reviews)) {
     if (
-      !cardIds.has(Number(id)) || !isRecord(review) ||
+      !cardIds.has(Number(id)) || String(Number(id)) !== id || !isRecord(review) ||
       !isSafeInteger(review.stage) || review.stage < 0 || review.stage > 5 ||
       !isTimestamp(review.dueAt) ||
       (review.lastReviewedAt !== null && !isTimestamp(review.lastReviewedAt)) ||

@@ -203,7 +203,7 @@ export const useLingoStore = create<LingoState>((set, get) => {
         await writeQueue.catch(() => undefined);
         if (JSON.stringify(currentSnapshot()) !== expectedLocal) return 'changed';
 
-        // Keep a recovery copy even when the cloud data is valid. A failed
+        // Keep a recovery copy even when the backup data is valid. A failed
         // write leaves the current v2 snapshot untouched.
         const recoveryKey = `lingonest.pre-restore.${Date.now()}.${Math.random().toString(36).slice(2)}`;
         await AsyncStorage.setItem(recoveryKey, expectedLocal);

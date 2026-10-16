@@ -1,7 +1,7 @@
 # ADR 0003：3.0 先交付可恢复的云端备份
 
 日期：2026-10-07
-状态：已采纳，待真实 Supabase 和 Android 验收
+状态：暂停实施，由 [ADR 0004](0004-local-backend-learning.md) 调整阶段 3 路线；真实 Supabase 和 Android 验收未完成
 
 ## 背景
 

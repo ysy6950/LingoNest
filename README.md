@@ -2,7 +2,7 @@
 
 LingoNest（暂定名）是一款 Android 优先的英语词汇学习应用，帮助英语基础较弱的用户快速记录单词、写下英语或中文解释、整理分组，并在合适的时间复习。
 
-当前项目正在交付 **3.0 云端数据找回**：四个入口仍负责添加、单词组、复习和统计；统计页可进入可选的云端备份。用户报告本地 2.1 的目标实机测试通过，3.0 真实云端验收尚未完成；项目状态以 [PROJECT_STATUS.md](PROJECT_STATUS.md) 为准。
+当前项目正在交付 **3.0 电脑本地后端**。3.0a 已新增一个可在电脑运行的健康检查服务；手机端仍负责添加、单词组、复习和统计，不依赖后端完成离线学习。原 Supabase 云端入口尚未替换，真实云端验收未完成；项目状态以 [PROJECT_STATUS.md](PROJECT_STATUS.md) 为准。
 
 ## 当前核心流程
 
@@ -28,10 +28,10 @@ MVP 2.0 的固定间隔是：记住了后 1、3、7、14、30 天逐步延长；
 - AsyncStorage 2：本地保存 v2 数据，并迁移旧版 `lingonest.cards` / `lingonest.groups`。
 - React Native `FlatList`：单词组中的双列卡片列表。
 - React Native `Animated`：卡片翻面过渡。
-- Supabase Auth、PostgreSQL：可选邮箱登录与按账号隔离的云端备份；本地功能无需登录。
-- Expo SecureStore：在 Android 设备安全存储中保存登录会话。
+- Node.js、TypeScript、Express：3.0a 电脑本地健康检查服务；SQLite 和手机连接属于后续小阶段。
+- Supabase Auth、PostgreSQL、Expo SecureStore：旧云端备份方案的代码仍在仓库，路线已暂停，未通过真实云端验收。
 
-当前没有 AI、虚拟角色或商城。3.0 的 Supabase 后端需按 [配置说明](docs/cloud/SETUP.md) 由项目拥有者建立并进行双设备验收；未配置时 App 继续本地运行。后续阶段见 [PROJECT_ROADMAP.md](PROJECT_ROADMAP.md)。
+当前没有 AI、虚拟角色或商城。3.0 已转向电脑本地后端；它是开发与学习环境，不是公开上线的服务。手机离线学习仍可使用。后续阶段见 [PROJECT_ROADMAP.md](PROJECT_ROADMAP.md)。
 
 ## 本地运行
 
@@ -43,13 +43,15 @@ npx expo start
 
 用 Android 手机上的 Expo Go 扫描二维码并打开项目。修改代码后可在 Expo Go 重新加载；遇到缓存问题再使用 `npx expo start -c`。
 
+电脑本地后端独立运行，见 [server/README.md](server/README.md)。3.0a 的 `GET /health` 可在本机浏览器验证，当前手机还未连接它。
+
 ## 验收
 
 请先阅读 [MVP 2.0 测试计划](docs/testing/MVP_TEST_PLAN.md)，不要清除 App 数据。快速顺序是：添加一个词 → 切换四个入口 → 打开分组双列卡片 → 搜索和排序 → 打开卡片详情并翻面、左右滑动 → 从角落“管理”入口修改/移动/删除 → 开始复习并回答 → 查看统计 → 关闭重开验证保存 → 记录 3 分钟实际用时。
 
 自动检查通过不等于手机验收通过。请把每个用例的实际结果写回测试计划；失败时记录设备、Commit、步骤、预期和实际结果。
 
-3.0 的手动备份与恢复范围见 [MVP_3.md](docs/product/MVP_3.md)，真实账号和双设备检查见 [CLOUD_3_TEST_PLAN.md](docs/testing/CLOUD_3_TEST_PLAN.md)。目前工作区中的改动尚未作为 3.0 发布；云端项目配置与实机结果仍待完成。
+3.0a 的本地接口由 `server/` 的自动测试验证；项目拥有者仍需按运行说明亲自确认。原 [MVP_3.md](docs/product/MVP_3.md) 与 [CLOUD_3_TEST_PLAN.md](docs/testing/CLOUD_3_TEST_PLAN.md) 是暂停的云端历史方案，不代表真实账号或双设备测试已通过。
 
 ## 项目文档阅读顺序
 
@@ -63,4 +65,4 @@ npx expo start
 
 ## 后续方向
 
-阶段 3 先实现 Supabase、PostgreSQL、可选登录和可恢复的手动备份；真正的双设备自动同步另行设计。阶段 4 通过服务端安全调用 AI 生成可检查的解释、例句、关联词和练习；阶段 5 在学习闭环稳定后评估游戏化、角色、商城和 Android 发布展示。
+阶段 3 逐步实现 SQLite、Android 局域网连接和可恢复的手动备份；正式多用户部署及自动同步另行设计。阶段 4 评估通过服务端安全调用 AI 生成可检查的解释、例句、关联词和练习；阶段 5 在学习闭环稳定后评估游戏化、角色、商城和 Android 发布展示。

@@ -24,7 +24,17 @@ const databasePath = process.env.LINGONEST_DB_PATH ?? resolve(serverRoot, 'data'
 // LAN defaults to health-only. Backup access must be explicitly enabled and paired.
 const backupStore = lanIp && !lanBackup ? undefined : openBackupStore(databasePath);
 
-createApp(backupStore, { lanHealthOnly: Boolean(lanIp && !lanBackup), backupToken }).listen(port, host, () => {
+const listener = createApp(backupStore, { lanHealthOnly: Boolean(lanIp && !lanBackup), backupToken }).listen(port, host, () => {
   console.log(`LingoNest ${lanBackup ? 'LAN backup' : lanIp ? 'LAN health-only' : 'local backup'} server: http://${host}:${port}/health`);
   if (backupToken) console.log(`Temporary pairing code (do not share or commit): ${backupToken}`);
+});
+
+listener.on('error', (error: NodeJS.ErrnoException) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${port} is already in use. Stop the old LingoNest server or choose another PORT.`);
+  } else {
+    console.error(error);
+  }
+  backupStore?.close();
+  process.exitCode = 1;
 });

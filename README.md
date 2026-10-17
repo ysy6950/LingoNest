@@ -2,7 +2,7 @@
 
 LingoNest（暂定名）是一款 Android 优先的英语词汇学习应用，帮助英语基础较弱的用户快速记录单词、写下英语或中文解释、整理分组，并在合适的时间复习。
 
-当前项目正在收尾 **3.0 电脑本地后端**。3.0c 与 3.0d 已由用户报告手机测试通过；配对后的手动备份、确认恢复及离线撤销可用，手机不依赖后端完成离线学习。3.0e 移除未启用的 App 云端入口与依赖；原云端方案仅保留历史文档和 SQL 迁移，未通过真实云端验收。项目状态以 [PROJECT_STATUS.md](PROJECT_STATUS.md) 为准。
+**3.0 电脑本地后端已完成。** 3.0c、3.0d 以及清理后的 3.0e 均由用户确认手机测试通过；配对后的手动备份、确认恢复及离线撤销可用，手机不依赖后端完成离线学习。原云端方案仅保留历史文档和 SQL 迁移，未通过真实云端验收。下一阶段是 AI 学习能力规划，项目状态以 [PROJECT_STATUS.md](PROJECT_STATUS.md) 为准。
 
 ## 当前核心流程
 
@@ -43,7 +43,7 @@ npx.cmd expo start
 
 用 Android 手机上的 Expo Go 扫描二维码并打开项目。修改代码后可在 Expo Go 重新加载；遇到缓存问题再使用 `npx.cmd expo start -c`。
 
-电脑本地后端独立运行，见 [server/README.md](server/README.md)。默认仅电脑本机可读写备份；指定局域网 IP 并启用备份模式后，手机凭临时配对码访问。Android 验收见 [3.0d 测试计划](docs/testing/LOCAL_3D_TEST_PLAN.md)。配对不会加密 HTTP，不可直接公开部署。
+电脑本地后端独立运行，见 [server/README.md](server/README.md)。默认仅电脑本机可读写备份；指定局域网 IP 并启用备份模式后，手机凭临时配对码访问。3.0d 与 3.0e 验收分别见 [3.0d 测试计划](docs/testing/LOCAL_3D_TEST_PLAN.md) 和 [3.0e 回归清单](docs/testing/LOCAL_3E_TEST_PLAN.md)。配对不会加密 HTTP，不可直接公开部署。
 
 ## 验收
 
@@ -51,7 +51,7 @@ npx.cmd expo start
 
 自动检查通过不等于手机验收通过。请把每个用例的实际结果写回测试计划；失败时记录设备、Commit、步骤、预期和实际结果。
 
-3.0c 与 3.0d 已由用户报告手机测试通过；逐项设备记录仍见测试计划。3.0e 移除云端入口后，按 [快速回归清单](docs/testing/LOCAL_3E_TEST_PLAN.md) 再做一次 Android 验证。两端测试需先分别安装 `mobile/` 与 `server/` 的依赖，手机测试包含电脑上执行的真实 HTTP 互通用例。原 [MVP_3.md](docs/product/MVP_3.md) 与 [CLOUD_3_TEST_PLAN.md](docs/testing/CLOUD_3_TEST_PLAN.md) 是云端历史方案，当前 App 不再包含其入口，不能视为真实账号或双设备测试已通过。
+3.0c、3.0d 与清理后的 3.0e 已由用户确认手机测试通过。两端测试需先分别安装 `mobile/` 与 `server/` 的依赖，手机测试包含电脑上执行的真实 HTTP 互通用例。原 [MVP_3.md](docs/product/MVP_3.md) 与 [CLOUD_3_TEST_PLAN.md](docs/testing/CLOUD_3_TEST_PLAN.md) 是云端历史方案，当前 App 不再包含其入口，不能视为真实账号或双设备测试已通过。
 
 ## 项目文档阅读顺序
 
@@ -65,4 +65,4 @@ npx.cmd expo start
 
 ## 后续方向
 
-阶段 3 已实现 SQLite、Android 局域网连接和可恢复的手动备份，正在完成 3.0e 清理回归；正式多用户部署及自动同步另行设计。阶段 4 评估通过服务端安全调用 AI 生成可检查的解释、例句、关联词和练习；阶段 5 在学习闭环稳定后评估游戏化、角色、商城和 Android 发布展示。
+阶段 3 已完成 SQLite、Android 局域网连接和可恢复的手动备份；正式多用户部署及自动同步另行设计。阶段 4 规划通过服务端安全调用 AI 生成可检查的解释、例句、关联词和练习；阶段 5 在学习闭环稳定后评估游戏化、角色、商城和 Android 发布展示。

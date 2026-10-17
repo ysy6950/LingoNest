@@ -43,7 +43,7 @@ export default function StatsScreen() {
         <View style={styles.detailCard}>
           <Text style={styles.detailTitle}>保护学习记录</Text>
           <Text style={styles.detailHint}>主动备份到自己的电脑，或从电脑恢复单词和复习进度。平时继续离线学习。</Text>
-          <AppButton label="电脑备份与恢复" variant="secondary" onPress={() => router.push('/local-backup')} style={styles.cloudButton} />
+          <AppButton label="电脑备份与恢复" variant="secondary" onPress={() => router.push('/local-backup')} style={styles.backupButton} />
           <AppButton label="检查电脑连接" variant="quiet" compact onPress={() => router.push('/local-server')} />
         </View>
       </ScrollView>
@@ -66,5 +66,5 @@ const styles = StyleSheet.create({
   detailTitle: { color: colors.ink, fontSize: 17, fontWeight: '800', marginBottom: 6 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10 }, detailLabel: { color: colors.inkSoft, fontSize: 14 }, detailValue: { color: colors.ink, fontSize: 15, fontWeight: '800' },
   detailHint: { color: colors.muted, fontSize: 12, lineHeight: 19, marginTop: 12 },
-  cloudButton: { marginTop: 16 },
+  backupButton: { marginTop: 16 },
 });

@@ -1,6 +1,6 @@
 # LingoNest 3.0：账号与云端数据找回
 
-状态：历史方案，已暂停。代码已实现但未通过 Supabase 与 Android 双设备验收；当前阶段 3 以 [ADR 0004](../decisions/0004-local-backend-learning.md) 为准。
+状态：历史方案，已由电脑本地后端取代。旧 App 云端代码曾实现但未通过 Supabase 与 Android 双设备验收，3.0e 已从当前运行版本移除；当前阶段 3 以 [ADR 0004](../decisions/0004-local-backend-learning.md) 为准。
 
 ## 用户价值与范围
 

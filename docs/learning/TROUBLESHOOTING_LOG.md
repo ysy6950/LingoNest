@@ -2,6 +2,12 @@
 
 本文件记录开发过程中遇到的错误、排查过程、解决方案和可复用的经验。问题不是失败记录，而是理解系统边界和工程方法的重要学习材料。
 
+## 2026-10-17：移除旧云端包时 npm 报 ERR_INVALID_URL
+
+- 现象：`npm.cmd uninstall` 在解析依赖时出现 `ERR_INVALID_URL`，堆栈指向 npm 代理 URL 处理；它未修改 `package.json` 或锁文件。
+- 处理：只用补丁删除三个直接依赖，再运行 `npm.cmd install --package-lock-only --offline --legacy-peer-deps` 更新锁文件；没有运行强制版本升级或清理手机数据。之后必须重跑类型检查、测试和 Android 打包。
+- 经验：包管理命令失败后先检查工作树和锁文件，不要假设依赖已成功删除；网络代理问题不应通过降低 App 安全设置来绕开。
+
 ## 2026-10-17：TypeScript 检查通过，但 Node 测试报不支持语法
 
 - 现象：新增请求模块在 `tsc --noEmit` 通过后，`npm.cmd test` 报 `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`。

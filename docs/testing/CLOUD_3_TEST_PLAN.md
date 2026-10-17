@@ -1,6 +1,6 @@
 # LingoNest 3.0 云端备份实机测试
 
-状态：历史测试计划，随 Supabase 路线暂停；真实 Supabase 项目和两台 Android 设备尚未验收。不要把静态检查结果写成云端通过。当前路线见 [ADR 0004](../decisions/0004-local-backend-learning.md)。
+状态：历史测试计划，已由电脑本地后端路线取代；3.0e 移除 App 云端入口和依赖，以下用例不能在当前版本执行。真实 Supabase 项目和两台 Android 设备尚未验收。不要把静态检查结果写成云端通过。当前路线见 [ADR 0004](../decisions/0004-local-backend-learning.md)。
 
 2026-10-07 本地检查：`npm run typecheck` 通过；`npm test` 18/18；`npx expo-doctor` 21/21；Android 与 Web bundle 导出成功。数据库迁移尚未在真实 Supabase 项目执行，CL-01 至 CL-12 未标实机通过。
 

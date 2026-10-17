@@ -185,24 +185,24 @@ test('invalid v2 data never gets overwritten by sample words', async () => {
   assert.equal(storage.writes.length, 0);
 });
 
-test('cloud restore preserves the previous local snapshot before replacing it', async () => {
+test('backup restore preserves the previous local snapshot before replacing it', async () => {
   const storage = device({ 'lingonest.demo-seeded': 'true' });
   const store = await openStore(storage);
   const oldId = store.getState().addCard('local', '本地', 1);
   await waitForSave(store);
   const oldSnapshot = store.getState().exportSnapshot();
-  const cloudSnapshot = {
+  const backupSnapshot = {
     version: 2,
-    cards: [{ id: 901, word: 'cloud', meaning: '云端', groupId: 1, createdAt: 123 }],
+    cards: [{ id: 901, word: 'backup', meaning: '备份', groupId: 1, createdAt: 123 }],
     groups: [{ id: 1, name: '默认组' }, { id: 0, name: '未分组' }],
     reviews: { 901: { stage: 2, dueAt: 3210000000000, lastReviewedAt: 1230000000000, lastResult: 'remembered', reviewCount: 2 } },
     selectedGroupId: 1,
   };
 
-  assert.equal(await store.getState().restoreFromBackup(cloudSnapshot, JSON.stringify(oldSnapshot)), 'restored');
-  assert.equal(store.getState().cards[0].word, 'cloud');
+  assert.equal(await store.getState().restoreFromBackup(backupSnapshot, JSON.stringify(oldSnapshot)), 'restored');
+  assert.equal(store.getState().cards[0].word, 'backup');
   assert.equal(store.getState().reviews[901].dueAt, 3210000000000);
-  assert.equal(storage.snapshot().cards[0].word, 'cloud');
+  assert.equal(storage.snapshot().cards[0].word, 'backup');
   const recoveryKey = [...storage.data.keys()].find((key) => key.startsWith('lingonest.pre-restore.'));
   assert.ok(recoveryKey);
   assert.equal(JSON.parse(storage.data.get(recoveryKey)).cards[0].id, oldId);
@@ -216,10 +216,10 @@ test('cloud restore preserves the previous local snapshot before replacing it', 
 
   const reopened = await openStore(storage);
   assert.equal(reopened.getState().cards[0].word, 'local');
-  assert.equal((await reopened.getState().latestRecoverySnapshot()).cards[0].word, 'cloud');
+  assert.equal((await reopened.getState().latestRecoverySnapshot()).cards[0].word, 'backup');
 });
 
-test('invalid or stale cloud data cannot overwrite local words', async () => {
+test('invalid or stale backup data cannot overwrite local words', async () => {
   const storage = device({ 'lingonest.demo-seeded': 'true' });
   const store = await openStore(storage);
   const before = JSON.stringify(store.getState().exportSnapshot());
@@ -244,14 +244,6 @@ test('failed restore write leaves the current local snapshot intact', async () =
   assert.equal(await store.getState().restoreFromBackup(JSON.parse(before), before), 'save-failed');
   assert.equal(JSON.stringify(storage.snapshot()), before);
   assert.equal(store.getState().cards[0].word, 'safe');
-});
-
-test('cloud uploads require the latest revision known by this device', async () => {
-  const { expectedUploadRevision } = await import('../cloud/backup.ts');
-  assert.equal(expectedUploadRevision(null, null), 0);
-  assert.equal(expectedUploadRevision(3, 3), 3);
-  assert.equal(expectedUploadRevision(3, null), null);
-  assert.equal(expectedUploadRevision(4, 3), null);
 });
 
 test('restore failure at every device write preserves current words and survives reopening', async () => {

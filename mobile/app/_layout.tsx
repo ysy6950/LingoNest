@@ -39,7 +39,6 @@ export default function RootLayout() {
         <Stack.Screen name="groups/[id]" />
         <Stack.Screen name="cards/[id]" />
         <Stack.Screen name="review-session" />
-        <Stack.Screen name="cloud-backup" />
         <Stack.Screen name="local-server" />
         <Stack.Screen name="local-backup" />
       </Stack>

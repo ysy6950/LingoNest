@@ -23,6 +23,9 @@ coverage/
 .codex-finalizer/
 .output/
 
+# Original screenshot inbox; curated copies live in docs/showcase/screenshots/
+/.image/
+
 # Operating-system files
 .DS_Store
 Thumbs.db

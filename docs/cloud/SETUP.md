@@ -1,5 +1,7 @@
 # LingoNest 3.0 云端配置与验收
 
+> 历史方案：阶段 3 已转向电脑本地后端，见 [ADR 0004](../decisions/0004-local-backend-learning.md)。3.0e 已移除 App 云端入口、客户端和 `mobile/.env.example`；下方步骤不能在当前版本直接执行。SQL 迁移保留为历史记录，Supabase 邮件和数据库尚未验收。
+
 云端项目必须由项目拥有者创建。代码无需私密密钥即可继续本地运行；没有配置时，云端页会说明暂不可用。
 
 ## 配置
@@ -7,8 +9,8 @@
 1. 在自己的 Supabase 账号创建项目，保存项目 URL 和 **publishable key**。不要使用 `service_role`、secret key 或未来的 AI API Key。
 2. 在项目的 SQL 编辑器中执行 [`supabase/migrations/202610070001_user_backups.sql`](../../supabase/migrations/202610070001_user_backups.sql)。它建立备份表、用户读取权限和带版本检查的写入函数。先在测试项目执行，再用于正式数据。
 3. 启用邮箱 OTP 登录，并把登录邮件模板配置为显示数字验证码 `{{ .Token }}`。此版本在 App 内输入验证码，不依赖邮件链接跳转。确认邮件服务可以向测试邮箱发信。
-4. 复制 [`mobile/.env.example`](../../mobile/.env.example) 为本机 `mobile/.env`，填入真实项目 URL 和 publishable key。`.env` 已被 Git 忽略；不要提交它。修改环境变量后重启 Expo 开发服务。
-5. 在 `mobile/` 运行 `npm install` 和 `npx expo start`，用 Android Expo Go 打开。到“统计 → 云端备份”使用邮箱登录。
+4. 当时使用 `mobile/.env.example` 生成本机 `mobile/.env`，填入项目 URL 和 publishable key。此示例和 App 云端实现已在 3.0e 移除；这里只记录旧流程，不能用于当前版本。`.env` 仍应被 Git 忽略。
+5. 当时计划在 `mobile/` 运行 Expo，再从“统计 → 云端备份”邮箱登录。当前 App 已无该入口，不要依此继续配置。
 
 ## 首次验证顺序
 

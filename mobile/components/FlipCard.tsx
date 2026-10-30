@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
   Easing,
@@ -14,6 +14,9 @@ import { colors, radius, spacing } from './theme';
 export type FlipCardProps = {
   word: string;
   meaning: string;
+  ipa?: string;
+  partOfSpeech?: string;
+  frontAccessory?: ReactNode;
   /** Omit this for a card that manages its own face. */
   revealed?: boolean;
   onRevealChange?: (revealed: boolean) => void;
@@ -25,6 +28,9 @@ export type FlipCardProps = {
 export function FlipCard({
   word,
   meaning,
+  ipa,
+  partOfSpeech,
+  frontAccessory,
   revealed,
   onRevealChange,
   style,
@@ -104,18 +110,8 @@ export function FlipCard({
   }
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={
-        displayedRevealed
-          ? `解释：${meaning}，点击翻回单词`
-          : `单词：${word}，点击查看解释`
-      }
-      accessibilityHint="点击翻转单词卡"
-      onPress={flip}
-      testID={testID}
-    >
       <Animated.View
+        testID={testID}
         style={[
           styles.frame,
           style,
@@ -125,23 +121,32 @@ export function FlipCard({
           },
         ]}
       >
-        <View style={styles.content}>
-          <View style={styles.topRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={displayedRevealed ? `解释：${meaning}，点击翻回单词` : `单词：${word}，点击查看解释`}
+          accessibilityHint="点击翻转单词卡"
+          onPress={flip}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.content} pointerEvents="box-none">
+          <View style={styles.topRow} pointerEvents="none">
             <View style={styles.accentLine} />
             <Text style={styles.sideLabel}>{displayedRevealed ? '释义' : '单词'}</Text>
             <Text style={styles.sideCount}>{displayedRevealed ? '02 / 02' : '01 / 02'}</Text>
           </View>
 
-          <View style={styles.center}>
-            <Text
-              selectable
-              style={displayedRevealed ? styles.meaning : styles.word}
-            >
-              {displayedRevealed ? meaning : word}
-            </Text>
+          <View style={styles.center} pointerEvents="box-none">
+            {displayedRevealed ? <Text selectable onPress={flip} style={styles.meaning}>{meaning}</Text> : (
+              <View style={styles.wordBlock} pointerEvents="box-none">
+                <Text selectable onPress={flip} style={styles.word}>{word}</Text>
+                {ipa ? <Text onPress={flip} style={styles.ipa}>/{ipa}/</Text> : null}
+                {partOfSpeech ? <Text onPress={flip} style={styles.partOfSpeech}>{partOfSpeech}</Text> : null}
+                {frontAccessory}
+              </View>
+            )}
           </View>
 
-          <View style={styles.footer}>
+          <View style={styles.footer} pointerEvents="none">
             <View style={styles.footerDot} />
             <Text style={styles.hint}>
               {displayedRevealed ? '轻点翻回单词' : '轻点查看解释'}
@@ -149,7 +154,6 @@ export function FlipCard({
           </View>
         </View>
       </Animated.View>
-    </Pressable>
   );
 }
 
@@ -187,6 +191,7 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   center: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.section },
+  wordBlock: { alignItems: 'center', gap: spacing.xs },
   word: {
     color: colors.ink,
     fontSize: 36,
@@ -194,6 +199,8 @@ const styles = StyleSheet.create({
     lineHeight: 44,
     textAlign: 'center',
   },
+  ipa: { color: colors.primary, fontSize: 18, fontWeight: '600', lineHeight: 24, textAlign: 'center' },
+  partOfSpeech: { color: colors.muted, fontSize: 13, lineHeight: 18, textAlign: 'center' },
   meaning: {
     color: colors.ink,
     fontSize: 22,

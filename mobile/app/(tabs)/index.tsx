@@ -7,6 +7,7 @@ import { AppTextField } from '../../components/AppTextField';
 import { colors, radius, spacing } from '../../components/theme';
 import { useLingoStore } from '../../store/useLingoStore';
 import { isReviewDue } from '../../reviewScheduler';
+import { useAutoEnrichment } from '../../store/useAutoEnrichment';
 
 export default function AddScreen() {
   const groups = useLingoStore((state) => state.groups);
@@ -16,6 +17,7 @@ export default function AddScreen() {
   const selectGroup = useLingoStore((state) => state.selectGroup);
   const addCard = useLingoStore((state) => state.addCard);
   const addGroup = useLingoStore((state) => state.addGroup);
+  const enrichment = useAutoEnrichment();
   const [word, setWord] = useState('');
   const [meaning, setMeaning] = useState('');
   const [newGroupName, setNewGroupName] = useState('');
@@ -60,7 +62,12 @@ export default function AddScreen() {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.eyebrow}>LINGONEST · 每日积累</Text>
+          <View style={styles.headingRow}>
+            <Text style={styles.eyebrow}>LINGONEST · 每日积累</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="设置" onPress={() => router.push('/settings')} style={styles.settingsButton}>
+              <Text style={styles.gear}>⚙</Text>
+            </Pressable>
+          </View>
           <Text style={styles.title}>记录今天遇到的词。</Text>
           <Text style={styles.subtitle}>先留下自己的理解，复习时再慢慢记住它。</Text>
 
@@ -78,6 +85,12 @@ export default function AddScreen() {
             {message ? <Text style={styles.success}>{message}</Text> : null}
             <AppButton label="保存单词" onPress={saveWord} style={styles.saveButton} />
           </View>
+
+          {enrichment.enabled.dictionary || enrichment.enabled.ai || enrichment.jobs.length || enrichment.error ?
+            <Pressable accessibilityRole="button" onPress={() => router.push('/settings')} style={styles.enrichmentStatus}>
+              <Text style={styles.enrichmentLabel}>{enrichment.error ? '自动补全设置需要处理' : `自动补全${enrichment.jobs.length ? ` · ${enrichment.jobs.length} 个待办` : '已开启'}`}</Text>
+              <Text style={styles.chevron}>›</Text>
+            </Pressable> : null}
 
           <Pressable style={styles.reviewPrompt} onPress={() => router.push('/(tabs)/review')}>
             <View>
@@ -125,6 +138,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background }, flex: { flex: 1 },
   content: { paddingHorizontal: spacing.xl, paddingTop: 32, paddingBottom: 48 },
   eyebrow: { color: colors.primary, fontSize: 12, fontWeight: '800', letterSpacing: 1.4 },
+  headingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  settingsButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  gear: { color: colors.primary, fontSize: 26 },
+  enrichmentStatus: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, gap: spacing.sm },
+  enrichmentLabel: { flex: 1, color: colors.primary, fontSize: 13 },
   title: { color: colors.ink, fontSize: 32, fontWeight: '800', lineHeight: 42, marginTop: 10 },
   subtitle: { color: colors.muted, fontSize: 15, lineHeight: 23, marginTop: 8, marginBottom: 28 },
   formCard: { backgroundColor: colors.surface, borderRadius: radius.card, padding: spacing.xl, gap: spacing.lg, borderWidth: 1, borderColor: colors.border },

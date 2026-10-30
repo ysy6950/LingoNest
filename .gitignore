@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+server/data/
 
 # Expo / React Native generated files
 .expo/
@@ -21,6 +22,9 @@ coverage/
 .build/
 .codex-finalizer/
 .output/
+
+# Original screenshot inbox; curated copies live in docs/showcase/screenshots/
+/.image/
 
 # Operating-system files
 .DS_Store

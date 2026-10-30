@@ -41,6 +41,10 @@ export default function ReviewScreen() {
         {dueCards.length === 0 && nextDueAt !== null ? (
           <Text style={styles.nextDue}>下一张预计在 {new Date(nextDueAt).toLocaleString('zh-CN')} 到期</Text>
         ) : null}
+        <View style={styles.practice}>
+          <Text style={styles.infoTitle}>AI 语境练习</Text>
+          <AppButton label="开始语境选词" variant="secondary" onPress={() => router.push('/exercises')} />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -56,4 +60,5 @@ const styles = StyleSheet.create({
   infoCard: { backgroundColor: colors.surface, borderRadius: radius.lg, borderColor: colors.border, borderWidth: 1, padding: 20, marginTop: 18 },
   infoTitle: { color: colors.ink, fontSize: 16, fontWeight: '800' }, infoBody: { color: colors.inkSoft, fontSize: 14, lineHeight: 23, marginTop: 8 },
   nextDue: { color: colors.muted, fontSize: 13, lineHeight: 20, marginTop: 18 },
+  practice: { borderTopWidth: 1, borderColor: colors.border, marginTop: spacing.xxl, paddingTop: spacing.xl, gap: spacing.md },
 });

@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { normalizeWebsterAudioUrl } from '../localServer/websterAudio.ts';
+import { normalizeWord } from '../wordIdentity.ts';
 
 import {
   INITIAL_REVIEW_STATE,
@@ -15,7 +17,42 @@ export type WordCard = {
   meaning: string;
   groupId: number;
   createdAt: number;
+  aiNote?: AiNote;
+  pronunciation?: Pronunciation;
 };
+
+export type AiNote = { definition: string; chineseHint: string; examples: string[] };
+export type Pronunciation = {
+  ipa?: string;
+  partOfSpeech?: string;
+  audioUrl?: string;
+  audioAccent?: 'us';
+  source?: string;
+  fetchedAt?: number;
+};
+
+export function isAiNote(value: unknown): value is AiNote {
+  if (!isRecord(value)) return false;
+  return typeof value.definition === 'string' && !!value.definition.trim() && value.definition.length <= 500 &&
+    typeof value.chineseHint === 'string' && !!value.chineseHint.trim() && value.chineseHint.length <= 200 &&
+    Array.isArray(value.examples) && value.examples.length >= 1 && value.examples.length <= 3 &&
+    value.examples.every((example) => typeof example === 'string' && !!example.trim() && example.length <= 500) &&
+    new Set(value.examples.map((example: string) => example.trim().toLocaleLowerCase())).size === value.examples.length;
+}
+
+function readAiNote(value: unknown): AiNote | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) throw new Error('Invalid AI note');
+  const note = value.examples === undefined && typeof value.example === 'string'
+    ? { ...value, examples: [value.example] }
+    : value;
+  if (!isAiNote(note)) throw new Error('Invalid AI note');
+  return {
+    definition: note.definition.trim(),
+    chineseHint: note.chineseHint.trim(),
+    examples: note.examples.map((example) => example.trim()),
+  };
+}
 
 export type WordGroup = {
   id: number;
@@ -25,7 +62,8 @@ export type WordGroup = {
 export const DEFAULT_GROUP_ID = 1;
 export const UNGROUPED_GROUP_ID = 0;
 
-const STORAGE_KEY = 'lingonest.v2';
+const STORAGE_KEY = 'lingonest.v3';
+const PREVIOUS_STORAGE_KEY = 'lingonest.v2';
 const LATEST_RECOVERY_KEY = 'lingonest.pre-restore.latest';
 const LEGACY_CARDS_KEY = 'lingonest.cards';
 const LEGACY_GROUPS_KEY = 'lingonest.groups';
@@ -45,7 +83,7 @@ const DEMO_WORDS = [
 ] as const;
 
 export type Snapshot = {
-  version: 2;
+  version: 3;
   cards: WordCard[];
   groups: WordGroup[];
   reviews: Record<number, ReviewState>;
@@ -66,11 +104,16 @@ type LingoState = {
   error: string | null;
   hydrate: () => Promise<void>;
   retrySave: () => Promise<boolean>;
+  waitForSave: () => Promise<boolean>;
   exportSnapshot: () => Snapshot | null;
   latestRecoverySnapshot: () => Promise<Snapshot | null>;
   restoreFromBackup: (raw: unknown, expectedLocal: string) => Promise<RestoreResult>;
   addCard: (word: string, meaning: string, groupId: number) => number | null;
+  addRecommendedCard: (sourceId: number, expectedWord: string, expectedMeaning: string, word: string, meaning: string, groupId: number) => number | null;
   editCard: (cardId: number, word: string, meaning: string) => boolean;
+  saveAiNote: (cardId: number, expectedWord: string, expectedMeaning: string, note: AiNote) => boolean;
+  removeAiNote: (cardId: number) => void;
+  savePronunciation: (cardId: number, expectedWord: string, pronunciation: Pronunciation) => boolean;
   deleteCard: (cardId: number) => void;
   moveCard: (cardId: number, groupId: number) => void;
   addGroup: (name: string) => number | null;
@@ -82,11 +125,11 @@ let hydrationPromise: Promise<void> | null = null;
 let writeQueue: Promise<void> = Promise.resolve();
 let latestSaveRevision = 0;
 
-/** The v2 snapshot is saved before hydration is exposed to the UI. */
+/** The v3 snapshot is saved before hydration is exposed to the UI. */
 export const useLingoStore = create<LingoState>((set, get) => {
   function currentSnapshot(): Snapshot {
     const { cards, groups, reviews, selectedGroupId } = get();
-    return { version: 2, cards, groups, reviews, selectedGroupId };
+    return { version: 3, cards, groups, reviews, selectedGroupId };
   }
 
   function saveCurrentState(): Promise<boolean> {
@@ -129,15 +172,18 @@ export const useLingoStore = create<LingoState>((set, get) => {
       set({ isHydrating: true, error: null });
       hydrationPromise = (async () => {
         try {
-          const storedV2 = await AsyncStorage.getItem(STORAGE_KEY);
+          const storedV3 = await AsyncStorage.getItem(STORAGE_KEY);
+          const storedV2 = storedV3 === null ? await AsyncStorage.getItem(PREVIOUS_STORAGE_KEY) : null;
           let snapshot: Snapshot;
 
-          if (storedV2 !== null) {
-            snapshot = readV2(storedV2);
+          if (storedV3 !== null) {
+            snapshot = readSnapshot(storedV3);
+          } else if (storedV2 !== null) {
+            snapshot = readSnapshot(storedV2);
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
           } else {
             snapshot = await migrateLegacyData();
-            // Keep the old keys as a recovery copy. Migration is safe to retry:
-            // v2 becomes authoritative as soon as this write succeeds.
+            // Keep the old keys as recovery copies. Migration is safe to retry.
             await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
           }
 
@@ -173,7 +219,11 @@ export const useLingoStore = create<LingoState>((set, get) => {
       return saveCurrentState();
     },
 
-    exportSnapshot: () => get().isHydrated ? readV2(JSON.stringify(currentSnapshot())) : null,
+    waitForSave: async () => {
+      try { await writeQueue; return !get().error; } catch { return false; }
+    },
+
+    exportSnapshot: () => get().isHydrated ? readSnapshot(JSON.stringify(currentSnapshot())) : null,
 
     latestRecoverySnapshot: async () => {
       const key = await AsyncStorage.getItem(LATEST_RECOVERY_KEY);
@@ -181,7 +231,7 @@ export const useLingoStore = create<LingoState>((set, get) => {
       const raw = await AsyncStorage.getItem(key);
       if (!raw) return null;
       try {
-        return readV2(raw);
+        return readSnapshot(raw);
       } catch {
         return null;
       }
@@ -191,7 +241,7 @@ export const useLingoStore = create<LingoState>((set, get) => {
       if (!get().isHydrated || get().isRestoring) return 'changed';
       let snapshot: Snapshot;
       try {
-        snapshot = readV2(JSON.stringify(raw));
+        snapshot = readSnapshot(JSON.stringify(raw));
       } catch {
         return 'invalid';
       }
@@ -253,6 +303,15 @@ export const useLingoStore = create<LingoState>((set, get) => {
       return id;
     },
 
+    addRecommendedCard: (sourceId, expectedWord, expectedMeaning, word, meaning, groupId) => {
+      const current = get();
+      const source = current.cards.find((card) => card.id === sourceId);
+      // Recheck at the write boundary: UI checks alone cannot prevent a stale or double add.
+      if (!source || source.word !== expectedWord || source.meaning !== expectedMeaning ||
+          current.cards.some((card) => normalizeWord(card.word) === normalizeWord(word))) return null;
+      return current.addCard(word, meaning, groupId);
+    },
+
     editCard: (cardId, word, meaning) => {
       const current = get();
       const nextWord = word.trim();
@@ -266,9 +325,37 @@ export const useLingoStore = create<LingoState>((set, get) => {
 
       set({
         cards: current.cards.map((card) =>
-          card.id === cardId ? { ...card, word: nextWord, meaning: nextMeaning } : card,
+          card.id === cardId ? { ...card, word: nextWord, meaning: nextMeaning, aiNote: card.word === nextWord && card.meaning === nextMeaning ? card.aiNote : undefined, pronunciation: card.word === nextWord ? card.pronunciation : undefined } : card,
         ),
       });
+      saveCurrentState();
+      return true;
+    },
+
+    saveAiNote: (cardId, expectedWord, expectedMeaning, note) => {
+      const current = get();
+      const card = current.cards.find((item) => item.id === cardId);
+      if (!current.isHydrated || current.isRestoring || !card ||
+          card.word !== expectedWord || card.meaning !== expectedMeaning || !isAiNote(note)) return false;
+      const aiNote = { definition: note.definition.trim(), chineseHint: note.chineseHint.trim(), examples: note.examples.map((example) => example.trim()) };
+      set({ cards: current.cards.map((item) => item.id === cardId ? { ...item, aiNote } : item) });
+      saveCurrentState();
+      return true;
+    },
+
+    removeAiNote: (cardId) => {
+      if (!get().isHydrated || get().isRestoring) return;
+      set({ cards: get().cards.map((card) => card.id === cardId ? { ...card, aiNote: undefined } : card) });
+      void saveCurrentState();
+    },
+
+    savePronunciation: (cardId, expectedWord, pronunciation) => {
+      const current = get();
+      const card = current.cards.find((item) => item.id === cardId);
+      if (!current.isHydrated || current.isRestoring || !card || card.word !== expectedWord || !isPronunciation(pronunciation)) return false;
+      const value = normalizePronunciation(pronunciation);
+      if (!value.ipa) return false;
+      set({ cards: current.cards.map((item) => item.id === cardId ? { ...item, pronunciation: value } : item) });
       saveCurrentState();
       return true;
     },
@@ -348,11 +435,11 @@ export const useLingoStore = create<LingoState>((set, get) => {
   };
 });
 
-function readV2(raw: string): Snapshot {
+function readSnapshot(raw: string): Snapshot {
   const parsed: unknown = JSON.parse(raw);
   if (
     !isRecord(parsed) ||
-    parsed.version !== 2 ||
+    parsed.version !== 2 && parsed.version !== 3 ||
     !Array.isArray(parsed.cards) ||
     !Array.isArray(parsed.groups) ||
     !isRecord(parsed.reviews)
@@ -370,7 +457,7 @@ function readV2(raw: string): Snapshot {
   const selectedGroupId = groups.some((group) => group.id === parsed.selectedGroupId)
     ? (parsed.selectedGroupId as number)
     : DEFAULT_GROUP_ID;
-  return { version: 2, cards, groups, reviews, selectedGroupId };
+  return { version: 3, cards, groups, reviews, selectedGroupId };
 }
 
 async function migrateLegacyData(): Promise<Snapshot> {
@@ -430,7 +517,7 @@ async function migrateLegacyData(): Promise<Snapshot> {
 
   const groups = normalizeGroups(parsedGroups.map(readGroup), cards);
   return {
-    version: 2,
+    version: 3,
     cards,
     groups,
     reviews,
@@ -445,6 +532,8 @@ function readCard(value: unknown): WordCard {
     typeof value.word !== 'string' ||
     typeof value.meaning !== 'string'
   ) throw new Error('Invalid card');
+  const aiNote = readAiNote(value.aiNote);
+  const pronunciation = readPronunciation(value.pronunciation);
 
   return {
     id: value.id,
@@ -454,7 +543,36 @@ function readCard(value: unknown): WordCard {
     createdAt: typeof value.createdAt === 'number' && Number.isFinite(value.createdAt)
       ? value.createdAt
       : value.id > 1_000_000_000_000 ? value.id : 0,
+    ...(aiNote === undefined ? {} : { aiNote }),
+    ...(pronunciation === undefined ? {} : { pronunciation }),
   };
+}
+
+function readPronunciation(value: unknown): Pronunciation | undefined {
+  if (value === undefined) return undefined;
+  if (!isPronunciation(value)) throw new Error('Invalid pronunciation');
+  return normalizePronunciation(value);
+}
+
+function normalizePronunciation(value: Pronunciation): Pronunciation {
+  return {
+    ...(value.ipa?.trim() ? { ipa: value.ipa.trim() } : {}),
+    ...(value.partOfSpeech?.trim() ? { partOfSpeech: value.partOfSpeech.trim() } : {}),
+    ...(value.audioUrl ? { audioUrl: normalizeWebsterAudioUrl(value.audioUrl)! } : {}),
+    ...(value.audioAccent === 'us' ? { audioAccent: 'us' as const } : {}),
+    ...(value.source?.trim() ? { source: value.source.trim() } : {}),
+    ...(value.fetchedAt === undefined ? {} : { fetchedAt: value.fetchedAt }),
+  };
+}
+
+function isPronunciation(value: unknown): value is Pronunciation {
+  return isRecord(value) &&
+    typeof value.ipa === 'string' && !!value.ipa.trim() && value.ipa.length <= 100 &&
+    (value.partOfSpeech === undefined || (typeof value.partOfSpeech === 'string' && !!value.partOfSpeech.trim() && value.partOfSpeech.length <= 50)) &&
+    (value.audioUrl === undefined || normalizeWebsterAudioUrl(value.audioUrl) !== null) &&
+    (value.audioAccent === undefined || value.audioAccent === 'us') &&
+    (value.source === undefined || (typeof value.source === 'string' && !!value.source.trim() && value.source.length <= 80)) &&
+    (value.fetchedAt === undefined || (typeof value.fetchedAt === 'number' && Number.isFinite(value.fetchedAt) && value.fetchedAt >= 0));
 }
 
 function readGroup(value: unknown): WordGroup {

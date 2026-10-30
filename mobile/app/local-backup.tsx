@@ -3,11 +3,12 @@ import { router } from 'expo-router';
 import { Keyboard, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '../components/AppButton';
-import { AppTextField } from '../components/AppTextField';
+import { ComputerConnectionFields } from '../components/ComputerConnectionFields';
 import { colors, radius, spacing } from '../components/theme';
 import { readComputerBackup, type BackupState } from '../localServer/backup';
 import { assertRestored, transferBackup } from '../localServer/transfer';
 import { useLingoStore, type Snapshot } from '../store/useLingoStore';
+import { useComputerConnection, withComputerConnection } from '../store/useComputerConnection';
 
 type Confirmation = {
   action: 'backup' | 'restore' | 'undo';
@@ -22,8 +23,8 @@ export default function LocalBackupScreen() {
   const exportSnapshot = useLingoStore((state) => state.exportSnapshot);
   const restoreFromBackup = useLingoStore((state) => state.restoreFromBackup);
   const latestRecoverySnapshot = useLingoStore((state) => state.latestRecoverySnapshot);
-  const [address, setAddress] = useState('');
-  const [token, setToken] = useState('');
+  const address = useComputerConnection((state) => state.address);
+  const token = useComputerConnection((state) => state.token);
   const [remote, setRemote] = useState<BackupState | null>(null);
   const [recovery, setRecovery] = useState<Snapshot | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
@@ -31,6 +32,8 @@ export default function LocalBackupScreen() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const working = useRef(false);
+
+  useEffect(() => { setRemote(null); setConfirmation(null); setMessage(''); setError(''); }, [address, token]);
 
   useEffect(() => {
     let active = true;
@@ -48,14 +51,13 @@ export default function LocalBackupScreen() {
     return true;
   }
   function finish() { working.current = false; setBusy(false); }
-  function invalidate() { setRemote(null); setMessage(''); setError(''); }
 
   async function read() {
     if (!begin()) return;
     Keyboard.dismiss();
     setRemote(null);
     try {
-      setRemote(await readComputerBackup({ address, token }));
+      setRemote(await withComputerConnection(readComputerBackup));
       setMessage('已读取电脑状态。请核对数量和时间后，再选择备份或恢复。');
     } catch (cause) { setError(describe(cause)); }
     finally { finish(); }
@@ -83,8 +85,8 @@ export default function LocalBackupScreen() {
         setMessage('已恢复上次替换前的手机数据。刚替换的内容也已保留为恢复副本。');
       } else {
         if (!request.remote) throw new Error('请重新读取电脑状态。');
-        const result = await transferBackup(request.action, { address, token }, request.remote, request.local,
-          { exportSnapshot, restoreFromBackup });
+        const result = await withComputerConnection((connection) => transferBackup(request.action as 'backup' | 'restore', connection, request.remote!, request.local,
+          { exportSnapshot, restoreFromBackup }));
         setRemote(result.remote);
         if (request.action === 'restore') {
           setRecovery(request.local);
@@ -108,13 +110,7 @@ export default function LocalBackupScreen() {
         <Text style={styles.body}>手动保存到自己的电脑。恢复会替换手机内容，不会合并两边的单词。</Text>
         <View style={styles.card}>
           <Text style={styles.heading}>连接电脑</Text>
-          <AppTextField label="电脑 IP 和端口" placeholder="例如 192.168.1.20:3001" value={address}
-            editable={!busy && !confirmation} autoCapitalize="none" autoCorrect={false} keyboardType="url"
-            onChangeText={(value) => { setAddress(value); invalidate(); }} />
-          <AppTextField label="临时配对码" placeholder="粘贴电脑终端显示的配对码" value={token}
-            editable={!busy && !confirmation} autoCapitalize="none" autoCorrect={false} secureTextEntry
-            onChangeText={(value) => { setToken(value); invalidate(); }}
-            helperText="配对码仅在此页面临时使用，不保存在手机。服务重启后需重新配对。" />
+          <ComputerConnectionFields disabled={busy || !!confirmation} />
           <AppButton label={busy ? '处理中…' : '读取电脑备份'} onPress={() => void read()} disabled={busy} variant="secondary" />
           <AppButton label="只检查连接" compact variant="quiet" onPress={() => router.push('/local-server')} disabled={busy} />
         </View>

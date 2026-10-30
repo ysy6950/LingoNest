@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,6 +6,7 @@ import { AppButton } from '../components/AppButton';
 import { AppTextField } from '../components/AppTextField';
 import { colors, spacing } from '../components/theme';
 import { checkLocalServer, type HealthResult } from '../localServer/health';
+import { useComputerConnection } from '../store/useComputerConnection';
 
 const messages: Record<HealthResult['kind'], string> = {
   ok: '连接成功。手机收到了电脑服务的响应。',
@@ -16,7 +17,10 @@ const messages: Record<HealthResult['kind'], string> = {
 };
 
 export default function LocalServerScreen() {
-  const [address, setAddress] = useState('');
+  const address = useComputerConnection((state) => state.address);
+  const setAddress = useComputerConnection((state) => state.setAddress);
+  const hydrate = useComputerConnection((state) => state.hydrate);
+  useEffect(() => { void hydrate(); }, [hydrate]);
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<HealthResult | null>(null);
 

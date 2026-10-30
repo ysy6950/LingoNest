@@ -1,5 +1,5 @@
 import { buildHealthUrl } from './health';
-import { isBackupSnapshot } from './snapshot';
+import { isBackupSnapshot, normalizeBackupSnapshot } from './snapshot';
 import type { Snapshot } from '../store/useLingoStore';
 
 export type Connection = { address: string; token: string };
@@ -23,7 +23,9 @@ function parseState(value: unknown): BackupState {
       !isBackupSnapshot(backup.snapshot)) {
     throw new BackupError('invalid', '电脑备份不完整或格式无效，本机数据未更改。');
   }
-  return { serverId: value.serverId, backup: backup as ComputerBackup };
+  const snapshot = normalizeBackupSnapshot(backup.snapshot);
+  if (!snapshot) throw new BackupError('invalid', '电脑备份不完整或格式无效，本机数据未更改。');
+  return { serverId: value.serverId, backup: { revision: backup.revision as number, updatedAt: backup.updatedAt as string, snapshot } };
 }
 
 async function request(connection: Connection, body?: unknown, timeoutMs = 10000): Promise<BackupState> {

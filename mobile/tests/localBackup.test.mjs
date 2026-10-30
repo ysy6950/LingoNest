@@ -20,7 +20,7 @@ const { transferBackup } = await import('../localServer/transfer.ts');
 const { isBackupSnapshot } = await import('../localServer/snapshot.ts');
 const connection = { address: '192.168.1.20:3001', token: 'a'.repeat(32) };
 const snapshot = {
-  version: 2, cards: [{ id: 12, word: 'safe', meaning: 'protected', groupId: 1, createdAt: 100 }],
+  version: 3, cards: [{ id: 12, word: 'safe', meaning: 'protected', groupId: 1, createdAt: 100 }],
   groups: [{ id: 1, name: '默认组' }, { id: 0, name: '未分组' }], selectedGroupId: 1,
   reviews: { 12: { stage: 2, dueAt: 10000, lastReviewedAt: 100, lastResult: 'remembered', reviewCount: 2 } },
 };
@@ -45,7 +45,24 @@ test('client rejects unauthorized, unavailable, malformed and incomplete backups
     });
   }
   assert.equal(isBackupSnapshot(snapshot), true);
+  const note = { definition: 'protected from danger', chineseHint: '安全的', examples: ['The door is safe.', 'We found a safe place.', 'Keep your files safe.'] };
+  assert.equal(isBackupSnapshot({ ...snapshot, cards: [{ ...snapshot.cards[0], aiNote: note }] }), true);
+  assert.equal(isBackupSnapshot({ ...snapshot, cards: [{ ...snapshot.cards[0], aiNote: { definition: note.definition, chineseHint: note.chineseHint, example: note.examples[0] } }] }), true);
+  assert.equal(isBackupSnapshot({ ...snapshot, cards: [{ ...snapshot.cards[0], aiNote: { ...note, examples: [''] } }] }), false);
+  assert.equal(isBackupSnapshot({ ...snapshot, cards: [{ ...snapshot.cards[0], pronunciation: { ipa: 'ˈseɪf', audioUrl: 'https://media.merriam-webster.com/audio/prons/en/us/mp3/safe0001.mp3', audioAccent: 'us', source: 'merriam-webster-learners', fetchedAt: 100 } }] }), true);
+  assert.equal(isBackupSnapshot({ ...snapshot, cards: [{ ...snapshot.cards[0], pronunciation: { source: 'merriam-webster-learners' } }] }), false);
   assert.equal(isBackupSnapshot({ ...snapshot, cards: [...snapshot.cards, snapshot.cards[0]] }), false);
+});
+
+test('reading an existing v2 computer backup offers a v3 snapshot without changing its content', async () => {
+  const legacy = { ...snapshot, version: 2 };
+  await withFetch(async () => reply({ ...state(), backup: { ...state().backup, snapshot: legacy } }), async () => {
+    const remote = await readComputerBackup(connection);
+    assert.equal(remote.backup.snapshot.version, 3);
+    assert.deepEqual(remote.backup.snapshot.cards, legacy.cards);
+    assert.deepEqual(remote.backup.snapshot.reviews, legacy.reviews);
+  });
+  assert.equal(legacy.version, 2);
 });
 
 test('failed upload acknowledgement tells user to read state before retrying', async () => {

@@ -5,6 +5,9 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useLingoStore } from '../store/useLingoStore';
 import { colors } from '../components/theme';
+import { AutoEnrichmentRunner } from '../components/AutoEnrichmentRunner';
+import { useAutoEnrichment } from '../store/useAutoEnrichment';
+import { useComputerConnection } from '../store/useComputerConnection';
 
 export default function RootLayout() {
   const hydrate = useLingoStore((state) => state.hydrate);
@@ -14,12 +17,15 @@ export default function RootLayout() {
   const isSaving = useLingoStore((state) => state.isSaving);
   const isRestoring = useLingoStore((state) => state.isRestoring);
   const retrySave = useLingoStore((state) => state.retrySave);
+  const enrichmentReady = useAutoEnrichment((state) => state.isHydrated || state.error !== null);
 
   useEffect(() => {
     void hydrate();
+    void useAutoEnrichment.getState().hydrate();
+    void useComputerConnection.getState().hydrate();
   }, [hydrate]);
 
-  if (!isHydrated) {
+  if (!isHydrated || !enrichmentReady) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
         {isHydrating || !error ? <ActivityIndicator size="large" color={colors.primary} /> : null}
@@ -34,13 +40,17 @@ export default function RootLayout() {
     <SafeAreaProvider>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style="dark" />
+      <AutoEnrichmentRunner />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="groups/[id]" />
         <Stack.Screen name="cards/[id]" />
+        <Stack.Screen name="related/[id]" />
         <Stack.Screen name="review-session" />
+        <Stack.Screen name="exercises" />
         <Stack.Screen name="local-server" />
         <Stack.Screen name="local-backup" />
+        <Stack.Screen name="settings" />
       </Stack>
       {error ? (
         <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>

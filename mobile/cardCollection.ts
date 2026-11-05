@@ -3,6 +3,16 @@ import type { WordCard } from './store/useLingoStore';
 
 export type CardSortMode = 'newest' | 'az' | 'due';
 
+/** Search every group without changing the group-local card order. */
+export function searchAllCards(cards: WordCard[], search: string): WordCard[] {
+  const query = search.trim().toLocaleLowerCase();
+  if (!query) return [];
+  return cards.filter((card) =>
+    card.word.toLocaleLowerCase().includes(query) ||
+    card.meaning.toLocaleLowerCase().includes(query),
+  ).sort((a, b) => b.createdAt - a.createdAt);
+}
+
 /** Keep the group grid and card browsing in the same visible order. */
 export function getVisibleGroupCards(
   cards: WordCard[],

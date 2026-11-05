@@ -4,17 +4,18 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '../components/AppButton';
 import { AppTextField } from '../components/AppTextField';
-import { ComputerConnectionFields } from '../components/ComputerConnectionFields';
+import { ComputerConnectionStatus } from '../components/ComputerConnectionStatus';
 import { colors, spacing } from '../components/theme';
 import { buildExerciseQuestions, eligibleExerciseWords, exerciseSourcesMatch, gradeExercise, randomExerciseWords, summarizeExercises, type ExerciseAnswer, type ExerciseQuestion } from '../exercises';
 import { requestExercises } from '../localServer/ai';
-import { withComputerConnection } from '../store/useComputerConnection';
+import { useComputerConnection, withComputerConnection } from '../store/useComputerConnection';
 import { useLingoStore, type WordCard } from '../store/useLingoStore';
 
 type Round = { sources: WordCard[]; questions: ExerciseQuestion[]; cursor: number; answers: Record<number, ExerciseAnswer> };
 
 export default function ExercisesScreen() {
   const cards = useLingoStore((state) => state.cards);
+  const paired = useComputerConnection((state) => state.paired);
   const groups = useLingoStore((state) => state.groups);
   const [groupId, setGroupId] = useState<number | null>(null);
   const eligible = useMemo(() => eligibleExerciseWords(cards.filter((card) => groupId === null || card.groupId === groupId)), [cards, groupId]);
@@ -155,8 +156,8 @@ export default function ExercisesScreen() {
           {!matching.length ? <Text style={styles.hint}>没有匹配的可用单词。</Text> : null}
         </View>
         <View style={styles.section}>
-          <ComputerConnectionFields disabled={busy} />
-          <AppButton label={busy ? '正在出题…' : '生成练习'} onPress={() => void generate()} disabled={busy || selected.length < 4} />
+          <ComputerConnectionStatus />
+          <AppButton label={busy ? '正在出题…' : '生成练习'} onPress={() => void generate()} disabled={!paired || busy || selected.length < 4} />
           {busy ? <View style={styles.loading}><ActivityIndicator color={colors.primary} /><Text style={styles.hint}>正在生成语境，请稍候。</Text></View> : null}
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
         </View>

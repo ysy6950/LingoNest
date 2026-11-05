@@ -17,11 +17,11 @@ export type AiConfig = {
 
 export type AiService = {
   state: AiConfigState;
-  getUsage(): AiUsage;
+  getUsage(scope?: string): AiUsage;
   clearCache(): void;
-  analyzeWord(input: { word: string; meaning?: string }): Promise<WordAnalysis>;
-  recommendWords(input: { word: string; meaning?: string }): Promise<RelatedWord[]>;
-  generateExercises(input: unknown): Promise<ExerciseQuestion[]>;
+  analyzeWord(input: { word: string; meaning?: string }, scope?: string): Promise<WordAnalysis>;
+  recommendWords(input: { word: string; meaning?: string }, scope?: string): Promise<RelatedWord[]>;
+  generateExercises(input: unknown, scope?: string): Promise<ExerciseQuestion[]>;
 };
 
 export const AI_TASKS = ['analysis', 'related', 'exercise'] as const;
@@ -44,8 +44,12 @@ export const AI_RUNTIME_POLICY = { ttlMs: 24 * 60 * 60 * 1000, maxEntries: 200, 
 
 function createAiRuntime(state: AiConfigState, now: () => number) {
   const startedAt = now();
-  const tasks = Object.fromEntries(AI_TASKS.map((task) => [task, { requests: 0, providerRequests: 0, cacheHits: 0, coalesced: 0, succeeded: 0, failed: 0, busyRejected: 0 }])) as Record<AiTask, TaskUsage>;
-  const failures = Object.fromEntries(AI_FAILURES.map((code) => [code, 0])) as Record<AiFailure, number>;
+  const newTasks = () => Object.fromEntries(AI_TASKS.map((task) => [task, { requests: 0, providerRequests: 0, cacheHits: 0, coalesced: 0, succeeded: 0, failed: 0, busyRejected: 0 }])) as Record<AiTask, TaskUsage>;
+  const newFailures = () => Object.fromEntries(AI_FAILURES.map((code) => [code, 0])) as Record<AiFailure, number>;
+  const tasks = newTasks();
+  const failures = newFailures();
+  const scoped = new Map<string, { tasks: Record<AiTask, TaskUsage>; failures: Record<AiFailure, number> }>();
+  const stats = (scope?: string) => scope ? (scoped.get(scope) ?? (scoped.set(scope, { tasks: newTasks(), failures: newFailures() }), scoped.get(scope)!)) : { tasks, failures };
   const cache = new Map<string, { value: unknown; expiresAt: number }>();
   const pending = new Map<string, Promise<unknown>>();
   let generation = 0;
@@ -54,39 +58,47 @@ function createAiRuntime(state: AiConfigState, now: () => number) {
   };
 
   return {
-    getUsage(): AiUsage {
+    getUsage(scope?: string): AiUsage {
       prune();
       // Expose only aggregate counters, never cache keys, inputs or provider settings.
-      return structuredClone({ status: state, startedAt, cache: { ttlMs: AI_RUNTIME_POLICY.ttlMs, maxEntries: AI_RUNTIME_POLICY.maxEntries, entries: cache.size }, maxConcurrent: AI_RUNTIME_POLICY.maxConcurrent, inFlight: pending.size, tasks, failures });
+      const own = stats(scope);
+      return structuredClone({ status: state, startedAt, cache: { ttlMs: AI_RUNTIME_POLICY.ttlMs, maxEntries: AI_RUNTIME_POLICY.maxEntries, entries: scope ? [...cache.keys()].filter((key) => key.startsWith(`${scope}:`)).length : cache.size }, maxConcurrent: AI_RUNTIME_POLICY.maxConcurrent, inFlight: scope ? [...pending.keys()].filter((key) => key.startsWith(`${scope}:`)).length : pending.size, tasks: own.tasks, failures: own.failures });
     },
     clearCache() { cache.clear(); generation++; },
-    async run<T>(task: AiTask, input: unknown, work: () => Promise<T>): Promise<T> {
+    async run<T>(task: AiTask, input: unknown, work: () => Promise<T>, scope?: string): Promise<T> {
       const metrics = tasks[task];
       metrics.requests++;
-      const key = createHash('sha256').update(JSON.stringify([CACHE_VERSION, task, input])).digest('hex');
+      const own = stats(scope);
+      if (scope) own.tasks[task].requests++;
+      const key = `${scope ?? ''}:${createHash('sha256').update(JSON.stringify([CACHE_VERSION, task, input])).digest('hex')}`;
       prune();
       const hit = cache.get(key);
       if (hit) {
         metrics.cacheHits++;
+        if (scope) own.tasks[task].cacheHits++;
         cache.delete(key); cache.set(key, hit);
         return structuredClone(hit.value) as T;
       }
       const existing = pending.get(key);
       if (existing) {
         metrics.coalesced++;
+        if (scope) own.tasks[task].coalesced++;
         return structuredClone(await existing) as T;
       }
       if (pending.size >= AI_RUNTIME_POLICY.maxConcurrent) {
         metrics.busyRejected++;
+        if (scope) own.tasks[task].busyRejected++;
         throw new AiServiceError('busy', '电脑已有两个 AI 任务正在处理，请稍后再试。', 503);
       }
       metrics.providerRequests++;
+      if (scope) own.tasks[task].providerRequests++;
       const revision = generation;
       let start!: () => void;
       const result = new Promise<T>((resolve, reject) => { start = () => { void work().then(resolve, reject); }; });
       // Register the promise before work starts so concurrent callers share validation and errors.
       const job = result.then((value) => {
         metrics.succeeded++;
+        if (scope) own.tasks[task].succeeded++;
         if (task !== 'exercise' && revision === generation) {
           prune();
           if (cache.size >= AI_RUNTIME_POLICY.maxEntries) cache.delete(cache.keys().next().value!);
@@ -95,8 +107,10 @@ function createAiRuntime(state: AiConfigState, now: () => number) {
         return value;
       }).catch((error: unknown) => {
         metrics.failed++;
+        if (scope) own.tasks[task].failed++;
         const code = error instanceof AiServiceError && AI_FAILURES.includes(error.code as AiFailure) ? error.code as AiFailure : 'unexpected_error';
         failures[code]++;
+        if (scope) own.failures[code]++;
         throw error;
       }).finally(() => { pending.delete(key); });
       pending.set(key, job);
@@ -120,7 +134,7 @@ export function validateExerciseWords(value: unknown): ExerciseWord[] {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw invalid();
     const row = value as Record<string, unknown>;
     if (Object.keys(row).sort().join(',') !== 'id,meaning,word' ||
-        !Number.isSafeInteger(row.id) || (row.id as number) <= 0 ||
+        !Number.isSafeInteger(row.id) ||
         typeof row.word !== 'string' || row.word.length > 100 || !/^[a-zA-Z]+(?:[ '\u2019-][a-zA-Z]+)*$/.test(row.word.trim()) ||
         typeof row.meaning !== 'string' || !row.meaning.trim() || row.meaning.length > 500 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(row.meaning)) throw invalid();
     const key = normalizeWord(row.word);
@@ -465,17 +479,17 @@ export function createAiService(
     state,
     getUsage: runtime.getUsage,
     clearCache: runtime.clearCache,
-    async analyzeWord(input) {
+    async analyzeWord(input, scope) {
       const data = validateWordInput({ ...input, meaning: input.meaning?.replace(/[\r\n]+/g, ' ') });
-      return runtime.run('analysis', data, async () => parseAnalysis(await generate(data, 'analysis')));
+      return runtime.run('analysis', data, async () => parseAnalysis(await generate(data, 'analysis')), scope);
     },
-    async recommendWords(input) {
+    async recommendWords(input, scope) {
       const data = validateWordInput({ ...input, meaning: input.meaning?.replace(/[\r\n]+/g, ' ') });
-      return runtime.run('related', data, async () => parseRelatedWords(await generate(data, 'related'), data.word));
+      return runtime.run('related', data, async () => parseRelatedWords(await generate(data, 'related'), data.word), scope);
     },
-    async generateExercises(input) {
+    async generateExercises(input, scope) {
       const words = validateExerciseWords(input);
-      return runtime.run('exercise', { words }, async () => parseExercises(await generate({ words }, 'exercise'), words));
+      return runtime.run('exercise', { words }, async () => parseExercises(await generate({ words }, 'exercise'), words), scope);
     },
   };
 }

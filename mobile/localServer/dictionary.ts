@@ -2,7 +2,7 @@ import { buildHealthUrl } from './health.ts';
 import { normalizeWebsterAudioUrl } from './websterAudio.ts';
 import type { Pronunciation } from '../store/useLingoStore';
 
-export type DictionaryConnection = { address: string; token?: string };
+export type DictionaryConnection = { address: string; token?: string; authMode?: 'account' };
 
 export class DictionaryRequestError extends Error {
   code: string;
@@ -20,7 +20,7 @@ const errors: Record<string, { code: string; message: string }> = {
 export async function requestWordPronunciation(connection: DictionaryConnection, word: string, timeoutMs = 15000): Promise<Pronunciation> {
   const healthUrl = buildHealthUrl(connection.address);
   if (!healthUrl) throw new DictionaryRequestError('address', '请输入电脑的局域网 IPv4 和端口。');
-  if (!connection.token || !/^[a-f0-9]{32}$/i.test(connection.token.trim())) throw new DictionaryRequestError('auth', '请先输入当前电脑服务显示的配对码。');
+  if (!connection.token || !(connection.authMode === 'account' ? /^[A-Za-z0-9_-]{43}$/ : /^[a-f0-9]{32}$/i).test(connection.token.trim())) throw new DictionaryRequestError('auth', '请先在设置中完成电脑连接或登录。');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -30,7 +30,7 @@ export async function requestWordPronunciation(connection: DictionaryConnection,
       body: JSON.stringify({ word }),
       signal: controller.signal,
     });
-    if (response.status === 401) throw new DictionaryRequestError('auth', '配对码不正确或已过期。');
+    if (response.status === 401) throw new DictionaryRequestError('auth', '连接凭证不正确或已过期，请重新登录或配对。');
     if (!response.ok) {
       let errorCode: unknown;
       try { errorCode = (await response.json())?.error; } catch { /* Keep a safe generic message. */ }

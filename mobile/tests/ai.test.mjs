@@ -41,7 +41,7 @@ test('both mobile AI requests wait for slow results and stop at 120 seconds with
 test('mobile AI client only calls the paired local server and parses the contract', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
-    assert.equal(url, 'http://192.168.1.20:3001/ai/word-analysis');
+    assert.equal(url, 'https://192.168.1.20:3001/ai/word-analysis');
     assert.equal(init.headers.authorization, `Bearer ${'a'.repeat(32)}`);
     return { ok: true, status: 200, json: async () => ({ definition: 'to gain knowledge', chineseHint: '学习', examples: ['I learn.', 'We learn.', 'They learn.'] }) };
   };

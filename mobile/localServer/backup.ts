@@ -2,7 +2,7 @@ import { buildHealthUrl } from './health';
 import { isBackupSnapshot, normalizeBackupSnapshot } from './snapshot';
 import type { Snapshot } from '../store/useLingoStore';
 
-export type Connection = { address: string; token: string };
+export type Connection = { address: string; token: string; authMode?: 'account' };
 export type ComputerBackup = { revision: number; snapshot: Snapshot; updatedAt: string };
 export type BackupState = { serverId: string; backup: ComputerBackup | null };
 
@@ -31,7 +31,7 @@ function parseState(value: unknown): BackupState {
 async function request(connection: Connection, body?: unknown, timeoutMs = 10000): Promise<BackupState> {
   const healthUrl = buildHealthUrl(connection.address);
   if (!healthUrl) throw new BackupError('address', '请输入电脑的局域网 IPv4 和端口。');
-  if (!/^[a-f0-9]{32}$/i.test(connection.token.trim())) throw new BackupError('auth', '请粘贴电脑终端显示的完整配对码。');
+  if (!(connection.authMode === 'account' ? /^[A-Za-z0-9_-]{43}$/ : /^[a-f0-9]{32}$/i).test(connection.token.trim())) throw new BackupError('auth', '请先在设置中完成电脑连接或登录。');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -41,7 +41,7 @@ async function request(connection: Connection, body?: unknown, timeoutMs = 10000
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: controller.signal,
     });
-    if (response.status === 401) throw new BackupError('auth', '配对码不正确或已过期。电脑服务重启后需要重新输入。');
+    if (response.status === 401) throw new BackupError('auth', '连接凭证不正确或已过期，请重新配对或登录。');
     if (response.status === 409) throw new BackupError('conflict', '电脑备份已变化。请重新读取并检查，未覆盖电脑记录。');
     if (response.status === 404) throw new BackupError('mode', '电脑仅开放了连接检查，请按说明启用备份模式。');
     if (response.status === 413) throw new BackupError('size', '备份超过 5 MB，未保存。');

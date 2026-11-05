@@ -3,12 +3,13 @@ import { router } from 'expo-router';
 import { Keyboard, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '../components/AppButton';
-import { ComputerConnectionFields } from '../components/ComputerConnectionFields';
+import { ComputerConnectionStatus } from '../components/ComputerConnectionStatus';
 import { colors, radius, spacing } from '../components/theme';
 import { readComputerBackup, type BackupState } from '../localServer/backup';
 import { assertRestored, transferBackup } from '../localServer/transfer';
-import { useLingoStore, type Snapshot } from '../store/useLingoStore';
+import { accountNamespace, useLingoStore, type Snapshot } from '../store/useLingoStore';
 import { useComputerConnection, withComputerConnection } from '../store/useComputerConnection';
+import { useAccountSession } from '../store/useAccountSession';
 
 type Confirmation = {
   action: 'backup' | 'restore' | 'undo';
@@ -24,7 +25,9 @@ export default function LocalBackupScreen() {
   const restoreFromBackup = useLingoStore((state) => state.restoreFromBackup);
   const latestRecoverySnapshot = useLingoStore((state) => state.latestRecoverySnapshot);
   const address = useComputerConnection((state) => state.address);
+  const paired = useComputerConnection((state) => state.paired);
   const token = useComputerConnection((state) => state.token);
+  const account = useAccountSession((state) => state.active);
   const [remote, setRemote] = useState<BackupState | null>(null);
   const [recovery, setRecovery] = useState<Snapshot | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
@@ -33,7 +36,7 @@ export default function LocalBackupScreen() {
   const [error, setError] = useState('');
   const working = useRef(false);
 
-  useEffect(() => { setRemote(null); setConfirmation(null); setMessage(''); setError(''); }, [address, token]);
+  useEffect(() => { setRemote(null); setConfirmation(null); setMessage(''); setError(''); }, [address, token, account?.account.id]);
 
   useEffect(() => {
     let active = true;
@@ -76,17 +79,18 @@ export default function LocalBackupScreen() {
   async function confirm() {
     if (!confirmation || !begin()) return;
     const request = confirmation;
+    const scope = account ? accountNamespace(account.serverId, account.account.id) : 'guest';
     setConfirmation(null);
     try {
       if (request.action === 'undo') {
         if (!request.recovery) throw new Error('没有可撤销的恢复记录。');
-        assertRestored(await restoreFromBackup(request.recovery, JSON.stringify(request.local)));
+        assertRestored(await restoreFromBackup(request.recovery, JSON.stringify(request.local), scope));
         setRecovery(request.local);
         setMessage('已恢复上次替换前的手机数据。刚替换的内容也已保留为恢复副本。');
       } else {
         if (!request.remote) throw new Error('请重新读取电脑状态。');
         const result = await withComputerConnection((connection) => transferBackup(request.action as 'backup' | 'restore', connection, request.remote!, request.local,
-          { exportSnapshot, restoreFromBackup }));
+          { exportSnapshot, restoreFromBackup: (raw, expected) => restoreFromBackup(raw, expected, scope) }));
         setRemote(result.remote);
         if (request.action === 'restore') {
           setRecovery(request.local);
@@ -105,14 +109,13 @@ export default function LocalBackupScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <AppButton label="返回统计" compact variant="quiet" onPress={() => router.back()} disabled={busy} style={styles.back} />
+        <AppButton label="返回我的" compact variant="quiet" onPress={() => router.back()} disabled={busy} style={styles.back} />
         <Text style={styles.title}>电脑备份</Text>
         <Text style={styles.body}>手动保存到自己的电脑。恢复会替换手机内容，不会合并两边的单词。</Text>
         <View style={styles.card}>
           <Text style={styles.heading}>连接电脑</Text>
-          <ComputerConnectionFields disabled={busy || !!confirmation} />
-          <AppButton label={busy ? '处理中…' : '读取电脑备份'} onPress={() => void read()} disabled={busy} variant="secondary" />
-          <AppButton label="只检查连接" compact variant="quiet" onPress={() => router.push('/local-server')} disabled={busy} />
+          <ComputerConnectionStatus />
+          <AppButton label={busy ? '处理中…' : '读取电脑备份'} onPress={() => void read()} disabled={busy || !paired} variant="secondary" />
         </View>
         <View style={styles.card}>
           <Text style={styles.heading}>核对数据</Text>
@@ -130,7 +133,7 @@ export default function LocalBackupScreen() {
           <Text style={styles.body}>{recovery.cards.length} 个单词 · {recovery.groups.length} 个分组。无需连接电脑也能撤销；撤销也会替换当前手机数据。</Text>
           <AppButton label="撤销上次恢复" variant="secondary" onPress={() => ask('undo')} disabled={busy} />
         </View> : null}
-        <Text style={styles.note}>仅用于可信的私人局域网。当前连接未加密，配对码不能代替正式账号和安全部署。电脑关机时仍能离线学习。</Text>
+        <Text style={styles.note}>{account ? '当前只会读取和保存此账号的电脑备份；电脑关闭时，本机词库仍可离线学习。' : '游客模式使用临时配对码和旧单份电脑备份，请勿与其他人共用。电脑关闭时仍可离线学习。'}</Text>
       </ScrollView>
       <Modal visible={confirmation !== null} transparent animationType="fade" onRequestClose={() => setConfirmation(null)}>
         <View style={styles.overlay}><ScrollView style={styles.dialog} contentContainerStyle={styles.dialogContent}>

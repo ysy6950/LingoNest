@@ -50,6 +50,14 @@ test('one pairing serves several operations and persists only the computer addre
   assert.equal(reopened.useComputerConnection.getState().paired, false);
 });
 
+test('saved HTTP addresses upgrade to HTTPS without changing learning data', async () => {
+  const { useComputerConnection: store, data } = await open({ 'lingonest.computer-address': 'http://192.168.1.20:3001' });
+  assert.equal(store.getState().address, 'https://192.168.1.20:3001');
+  assert.equal(store.getState().token, '');
+  assert.equal(store.getState().paired, false);
+  assert.equal(data.get('lingonest.computer-address'), 'http://192.168.1.20:3001');
+});
+
 test('expired pairing clears the code while a network failure keeps the reusable connection', async () => {
   const { useComputerConnection: store, withComputerConnection: request } = await open();
   store.setState({ address: '192.168.1.20:3001', token: 'a'.repeat(32), paired: true });
@@ -102,4 +110,16 @@ test('delayed saved address cannot overwrite an address the user is already edit
   resolveRead('192.168.1.20:3001');
   await hydration;
   assert.equal(store.getState().address, '192.168.1.21:3001');
+});
+
+test('an old request stays stale even after switching A to B and back to A', async () => {
+  const { useComputerConnection: store, withComputerConnection: request } = await open();
+  const address = '192.168.1.20:3001';
+  store.getState().setAccount(address, 'A'.repeat(43), 'server.alice');
+  let finish;
+  const pending = request(() => new Promise((resolve) => { finish = resolve; }));
+  store.getState().setAccount(address, 'B'.repeat(43), 'server.bob');
+  store.getState().setAccount(address, 'A'.repeat(43), 'server.alice');
+  finish('old result');
+  await assert.rejects(pending, /连接已更改/);
 });

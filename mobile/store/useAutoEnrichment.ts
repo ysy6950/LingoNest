@@ -21,6 +21,7 @@ export function needsEnrichment(card: WordCard, kind: EnrichmentKind): boolean {
 }
 
 const STORAGE_KEY = 'lingonest.auto-enrichment.v1';
+const namespaceKey = (namespace: string) => namespace === 'guest' ? STORAGE_KEY : `lingonest.account.${namespace}.auto-enrichment.v1`;
 type EnrichmentState = {
   enabled: Record<EnrichmentKind, boolean>;
   jobs: EnrichmentJob[];
@@ -28,6 +29,7 @@ type EnrichmentState = {
   isSaving: boolean;
   error: string | null;
   hydrate: () => Promise<void>;
+  activateNamespace: (namespace: string) => Promise<boolean>;
   setEnabled: (kind: EnrichmentKind, enabled: boolean) => void;
   enqueue: (card: WordCard, kinds: EnrichmentKind[], automatic: boolean) => void;
   updatePart: (id: string, kind: EnrichmentKind, part?: EnrichmentPart) => void;
@@ -42,13 +44,15 @@ export function createEnrichmentStore() {
   let hydration: Promise<void> | undefined;
   let writes: Promise<void> = Promise.resolve();
   let revision = 0;
+  let activeNamespace = 'guest';
   return create<EnrichmentState>((set, get) => {
     function persist(): Promise<boolean> {
       const currentRevision = ++revision;
       const { enabled, jobs } = get();
+      const key = namespaceKey(activeNamespace);
       set({ isSaving: true });
       writes = writes.catch(() => undefined).then(() =>
-        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, enabled, jobs })));
+        AsyncStorage.setItem(key, JSON.stringify({ version: 1, enabled, jobs })));
       return writes.then(() => {
         if (revision === currentRevision) set({ isSaving: false, error: null });
         return true;
@@ -67,7 +71,7 @@ export function createEnrichmentStore() {
         if (get().isHydrated) return Promise.resolve();
         if (!hydration) hydration = (async () => {
           try {
-            const raw = await AsyncStorage.getItem(STORAGE_KEY);
+            const raw = await AsyncStorage.getItem(namespaceKey(activeNamespace));
             const data = raw === null ? { enabled: { dictionary: false, ai: false }, jobs: [] } : readSettings(raw);
             set({ ...data, isHydrated: true, error: null });
           } catch {
@@ -75,6 +79,24 @@ export function createEnrichmentStore() {
           } finally { hydration = undefined; }
         })();
         return hydration;
+      },
+      activateNamespace: async (namespace) => {
+        if (!/^(?:guest|[0-9a-f-]{36}\.[0-9a-f-]{36})$/.test(namespace)) return false;
+        if (namespace === activeNamespace) return get().isHydrated;
+        if (hydration) await hydration;
+        if (!get().isHydrated || !await get().waitForSave()) return false;
+        const previousNamespace = activeNamespace;
+        activeNamespace = namespace;
+        revision++;
+        set({ enabled: { dictionary: false, ai: false }, jobs: [], isHydrated: false, isSaving: false, error: null });
+        await get().hydrate();
+        if (!get().isHydrated) {
+          activeNamespace = previousNamespace;
+          set({ isHydrated: false, error: null });
+          await get().hydrate();
+          return false;
+        }
+        return get().isHydrated;
       },
       setEnabled: (kind, enabled) => {
         if (!get().isHydrated) return;

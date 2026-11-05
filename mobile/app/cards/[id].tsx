@@ -5,10 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getVisibleGroupCards, type CardSortMode } from '../../cardCollection';
 import { AppButton } from '../../components/AppButton';
 import { AppTextField } from '../../components/AppTextField';
-import { ComputerConnectionFields } from '../../components/ComputerConnectionFields';
+import { ComputerConnectionStatus } from '../../components/ComputerConnectionStatus';
 import { useWordAudio } from '../../components/useWordAudio';
 import { WordEnrichment } from '../../components/WordEnrichment';
-import { withComputerConnection } from '../../store/useComputerConnection';
+import { useComputerConnection, withComputerConnection } from '../../store/useComputerConnection';
 import { FlipCard } from '../../components/FlipCard';
 import { SwipeableCard, type SwipeableCardHandle } from '../../components/SwipeableCard';
 import { colors, radius, spacing } from '../../components/theme';
@@ -28,6 +28,7 @@ export default function CardDetailScreen() {
   }>();
   const cardId = Number(id);
   const cards = useLingoStore((state) => state.cards);
+  const paired = useComputerConnection((state) => state.paired);
   const groups = useLingoStore((state) => state.groups);
   const reviews = useLingoStore((state) => state.reviews);
   const editCard = useLingoStore((state) => state.editCard);
@@ -411,14 +412,14 @@ export default function CardDetailScreen() {
               {menuPage === 'ai' ? <>
                 <Text style={styles.modalTitle}>AI 辅助 · {card.word}</Text>
                 <Text style={styles.aiHint}>发送这个单词及现有解释到你配置的 AI 服务商。结果仅作预览，保存后也不会覆盖原解释。</Text>
-                <ComputerConnectionFields disabled={aiBusy} />
-                <AppButton label={aiBusy ? '生成中…' : '生成预览'} onPress={() => void generateAiPreview()} disabled={aiBusy} variant="secondary" />
+                <ComputerConnectionStatus />
+                <AppButton label={aiBusy ? '生成中…' : '生成预览'} onPress={() => void generateAiPreview()} disabled={aiBusy || !paired} variant="secondary" />
               </> : null}
               {menuPage === 'pronunciation' ? <>
                 <Text style={styles.modalTitle}>获取音标 · {card.word}</Text>
                 <Text style={styles.aiHint}>向电脑后端配置的学习者词典查询音标和词性。查询结果先预览，确认后才保存。</Text>
-                <ComputerConnectionFields disabled={dictionaryBusy} />
-                <AppButton label={dictionaryBusy ? '查询中…' : '查询音标'} onPress={() => void lookupPronunciation()} disabled={dictionaryBusy} variant="secondary" />
+                <ComputerConnectionStatus />
+                <AppButton label={dictionaryBusy ? '查询中…' : '查询音标'} onPress={() => void lookupPronunciation()} disabled={dictionaryBusy || !paired} variant="secondary" />
                 {dictionaryError ? <Text accessibilityRole="alert" style={styles.aiError}>{dictionaryError}</Text> : null}
                 {pronunciationPreview ? <View style={styles.dictionaryPreview}>
                   <Text style={styles.aiPreviewTitle}>查询结果</Text>

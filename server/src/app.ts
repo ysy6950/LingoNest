@@ -6,12 +6,14 @@ import type { AiService } from './ai.js';
 import { AiServiceError, getAiConfigState } from './ai.js';
 import type { DictionaryService } from './dictionary.js';
 import { DictionaryServiceError, getDictionaryConfigState } from './dictionary.js';
+import type { AccountStore, Account } from './accountStore.js';
+import { mountAccountRoutes } from './accountRoutes.js';
 
-export function createApp(backupStore?: BackupStore, options: { lanHealthOnly?: boolean; backupToken?: string; aiService?: AiService; dictionaryService?: DictionaryService } = {}) {
+export function createApp(backupStore?: BackupStore, options: { lanHealthOnly?: boolean; backupToken?: string; aiService?: AiService; dictionaryService?: DictionaryService; accountStore?: AccountStore } = {}) {
   const app = express();
   const { lanHealthOnly, backupToken } = options;
   // Authenticate before parsing backup bodies. Never log the credential.
-  if (backupToken) app.use(['/backup', '/ai', '/dictionary'], (request, response, next) => {
+  if (backupToken && !options.accountStore) app.use(['/backup', '/ai', '/dictionary'], (request, response, next) => {
     const supplied = Buffer.from(request.get('authorization') ?? '');
     const expected = Buffer.from(`Bearer ${backupToken}`);
     if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
@@ -21,12 +23,14 @@ export function createApp(backupStore?: BackupStore, options: { lanHealthOnly?: 
     next();
   });
   app.use(express.json({ limit: '6mb' }));
+  if (options.accountStore) mountAccountRoutes(app, options.accountStore);
+  const scope = (response: express.Response) => options.accountStore ? (response.locals.account as Account).id : undefined;
 
   app.get('/health', (_request, response) => {
     response.json({
       status: 'ok',
       service: 'lingonest-local-server',
-      ...(lanHealthOnly ? { mode: 'lan-health-only' } : backupToken ? { mode: 'lan-backup' } : {}),
+      ...(options.accountStore ? { mode: 'lan-accounts' } : lanHealthOnly ? { mode: 'lan-health-only' } : backupToken ? { mode: 'lan-backup' } : {}),
     });
   });
 
@@ -45,7 +49,7 @@ export function createApp(backupStore?: BackupStore, options: { lanHealthOnly?: 
       return;
     }
     if (!options.aiService) { response.status(503).json({ error: 'ai_disabled' }); return; }
-    response.json(options.aiService.getUsage());
+    response.json(options.aiService.getUsage(scope(response)));
   });
 
   app.delete('/ai/cache', (_request, response) => {
@@ -55,8 +59,9 @@ export function createApp(backupStore?: BackupStore, options: { lanHealthOnly?: 
       return;
     }
     if (!options.aiService) { response.status(503).json({ error: 'ai_disabled' }); return; }
+    if (options.accountStore && (response.locals.account as Account).role !== 'admin') { response.status(403).json({ error: 'forbidden' }); return; }
     options.aiService.clearCache();
-    response.json(options.aiService.getUsage());
+    response.json(options.aiService.getUsage(scope(response)));
   });
 
   app.post('/ai/word-analysis', async (request, response) => {
@@ -74,7 +79,7 @@ export function createApp(backupStore?: BackupStore, options: { lanHealthOnly?: 
       return;
     }
     try {
-      response.json(await options.aiService.analyzeWord({ word: body.word, meaning: body.meaning }));
+      response.json(await options.aiService.analyzeWord({ word: body.word, meaning: body.meaning }, scope(response)));
     } catch (error) {
       if (error instanceof AiServiceError) {
         console.warn(`[AI] request failed: ${error.code}${error.providerStatus ? ` (upstream HTTP ${error.providerStatus})` : ''}`);
@@ -102,7 +107,7 @@ export function createApp(backupStore?: BackupStore, options: { lanHealthOnly?: 
     }
     const startedAt = Date.now();
     try {
-      const recommendations = await options.aiService.recommendWords({ word: body.word, meaning: body.meaning });
+      const recommendations = await options.aiService.recommendWords({ word: body.word, meaning: body.meaning }, scope(response));
       const aiFinishedAt = Date.now();
       const dictionary = options.dictionaryService;
       const candidates = await Promise.all(recommendations.map(async (candidate) => {
@@ -140,7 +145,7 @@ export function createApp(backupStore?: BackupStore, options: { lanHealthOnly?: 
     }
     const startedAt = Date.now();
     try {
-      const questions = await options.aiService.generateExercises(request.body);
+      const questions = await options.aiService.generateExercises(request.body, scope(response));
       console.info(`[AI] exercises completed: total=${Date.now() - startedAt}ms questions=${questions.length}`);
       response.json({ questions });
     } catch (error) {
@@ -189,15 +194,17 @@ export function createApp(backupStore?: BackupStore, options: { lanHealthOnly?: 
     }
   });
 
-  if (backupStore && !lanHealthOnly) {
+  if ((backupStore || options.accountStore) && !lanHealthOnly) {
+    const store = options.accountStore ?? backupStore!;
+    const read = (response: express.Response) => options.accountStore ? options.accountStore.readBackup(scope(response)!) : backupStore!.read();
     app.get('/backup', (_request, response) => {
-      response.json({ serverId: backupStore.serverId, backup: backupStore.read() });
+      response.json({ serverId: store.serverId, backup: read(response) });
     });
 
     app.put('/backup', (request, response) => {
       const { snapshot, expectedRevision } = request.body ?? {};
       // A replacement database may reuse revision 1; identity prevents stale writes to it.
-      if ((backupToken || request.body?.expectedServerId !== undefined) && request.body?.expectedServerId !== backupStore.serverId) {
+      if ((backupToken || options.accountStore || request.body?.expectedServerId !== undefined) && request.body?.expectedServerId !== store.serverId) {
         response.status(409).json({ error: 'server_changed' });
         return;
       }
@@ -213,12 +220,12 @@ export function createApp(backupStore?: BackupStore, options: { lanHealthOnly?: 
         return;
       }
 
-      const saved = backupStore.save(snapshot, expectedRevision);
+      const saved = options.accountStore ? options.accountStore.saveBackup(scope(response)!, snapshot, expectedRevision) : backupStore!.save(snapshot, expectedRevision);
       if (!saved) {
         response.status(409).json({ error: 'revision_conflict' });
         return;
       }
-      response.json({ serverId: backupStore.serverId, backup: saved });
+      response.json({ serverId: store.serverId, backup: saved });
     });
   }
 

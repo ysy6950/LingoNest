@@ -18,7 +18,7 @@ test('usage and clear use authenticated local management endpoints without sendi
   });
   assert.deepEqual(await requestAiUsage(connection), usage());
   assert.deepEqual(await clearAiCache(connection), usage());
-  assert.deepEqual(calls, ['http://192.168.1.20:3001/ai/usage', 'http://192.168.1.20:3001/ai/cache']);
+  assert.deepEqual(calls, ['https://192.168.1.20:3001/ai/usage', 'https://192.168.1.20:3001/ai/cache']);
 });
 
 test('usage rejects unsafe or incomplete counters and unexpected fields', async (t) => {

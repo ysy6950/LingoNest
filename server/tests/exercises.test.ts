@@ -17,11 +17,11 @@ const valid = (error: unknown) => error instanceof AiServiceError && error.code 
 
 test('exercise input accepts only 4-5 distinct bounded word records, normalizing explanations', () => {
   assert.equal(validateExerciseWords({ words })[0].meaning, 'to gain knowledge 学习');
+  assert.equal(validateExerciseWords({ words: [{ ...words[0], id: -1 }, ...words.slice(1)] })[0].id, -1);
   for (const input of [null, { words: words.slice(0, 3) }, { words: [...words, ...words] }, { words, review: true },
     { words: [words[0], words[0], ...words.slice(2)] },
     { words: [words[0], { ...words[1], word: ' LEARN ' }, ...words.slice(2)] },
     { words: [{ ...words[0], id: '1' }, ...words.slice(1)] },
-    { words: [{ ...words[0], id: -1 }, ...words.slice(1)] },
     { words: [{ ...words[0], meaning: 'x'.repeat(501) }, ...words.slice(1)] },
     { words: [{ ...words[0], apiKey: 'do-not-send' }, ...words.slice(1)] },
     { words: [{ ...words[0], word: '你好' }, ...words.slice(1)] },

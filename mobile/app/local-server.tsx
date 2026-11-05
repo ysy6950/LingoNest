@@ -3,22 +3,21 @@ import { router } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '../components/AppButton';
-import { AppTextField } from '../components/AppTextField';
+import { ComputerConnectionStatus } from '../components/ComputerConnectionStatus';
 import { colors, spacing } from '../components/theme';
 import { checkLocalServer, type HealthResult } from '../localServer/health';
 import { useComputerConnection } from '../store/useComputerConnection';
 
 const messages: Record<HealthResult['kind'], string> = {
   ok: '连接成功。手机收到了电脑服务的响应。',
-  'invalid-address': '请输入电脑的私有局域网 IPv4 地址，例如 192.168.1.20。',
+  'invalid-address': '请输入电脑的私有局域网 IPv4 地址，例如 https://192.168.1.20:3001。',
   timeout: '连接超时。请检查服务是否运行、IP 是否正确，以及手机与电脑是否在同一网络。',
-  unreachable: '无法连接电脑。请检查局域网、防火墙和服务监听地址；当前 Expo Go 也可能不允许此 HTTP 请求。',
+  unreachable: '无法连接电脑。请检查局域网、服务地址和证书是否与电脑 IP 匹配。',
   'unexpected-response': '已收到响应，但它不是 LingoNest 健康检查结果。请核对端口。',
 };
 
 export default function LocalServerScreen() {
   const address = useComputerConnection((state) => state.address);
-  const setAddress = useComputerConnection((state) => state.setAddress);
   const hydrate = useComputerConnection((state) => state.hydrate);
   useEffect(() => { void hydrate(); }, [hydrate]);
   const [checking, setChecking] = useState(false);
@@ -38,21 +37,11 @@ export default function LocalServerScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <AppButton label="返回统计" variant="quiet" compact onPress={() => router.back()} style={styles.back} />
+        <AppButton label="返回设置" variant="quiet" compact onPress={() => router.back()} style={styles.back} />
         <Text style={styles.title}>电脑连接检查</Text>
-        <Text style={styles.detail}>输入运行本地服务的电脑 IP。这里只检查连接，不会读取或上传手机单词。</Text>
-        <AppTextField
-          label="电脑的局域网 IPv4 地址"
-          placeholder="例如 192.168.1.20"
-          value={address}
-          editable={!checking}
-          onChangeText={(value) => { setAddress(value); setResult(null); }}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          helperText="如果服务端口不是 3000，可输入 192.168.1.20:3001。"
-        />
-        <AppButton label={checking ? '检查中…' : '检查连接'} disabled={checking} onPress={() => void check()} />
+        <Text style={styles.detail}>这里只检查设置页保存的电脑地址能否响应，不会读取或上传手机单词。</Text>
+        <ComputerConnectionStatus />
+        <AppButton label={checking ? '检查中…' : '检查连接'} disabled={checking || !address} onPress={() => void check()} />
         {result ? (
           <View style={[styles.result, result.kind === 'ok' ? styles.success : styles.failure]}>
             <Text accessibilityRole="alert" style={result.kind === 'ok' ? styles.successText : styles.failureText}>

@@ -10,7 +10,7 @@ const connection = { address: '192.168.1.20:3001', token: 'a'.repeat(32) };
 test('mobile recommendation client calls paired local server and validates candidate metadata', async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
-    assert.equal(url, 'http://192.168.1.20:3001/ai/related-words');
+    assert.equal(url, 'https://192.168.1.20:3001/ai/related-words');
     assert.equal(init.headers.authorization, `Bearer ${connection.token}`);
     assert.deepEqual(JSON.parse(init.body), { word: 'serene', meaning: '宁静' });
     return { ok: true, json: async () => ({ candidates: [candidate] }) };

@@ -124,6 +124,21 @@ for (const action of ['edit', 'delete', 'restore', 'disable', 'cancel']) test(`l
   assert.equal(f.card(id)?.aiNote, undefined); assert.equal(f.calls.length, 1);
 });
 
+test('a late automatic AI result from guest cannot write after account namespace switch', async (t) => {
+  let finish;
+  const f = await fixture({ analyze: () => new Promise((resolve) => { finish = resolve; }) });
+  t.after(() => f.runner.stop());
+  f.enable('ai'); f.add(); await until(() => !!finish);
+  f.connection.getState().disconnect();
+  const scope = '11111111-1111-4111-8111-111111111111.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  assert.equal(await f.lingo.getState().activateNamespace(scope), true);
+  assert.equal(await f.queue.getState().activateNamespace(scope), true);
+  f.connection.getState().setAccount('192.168.1.20:3001', 'A'.repeat(43), scope);
+  finish(note); await new Promise(setImmediate);
+  assert.equal(f.lingo.getState().cards.length, 0);
+  assert.equal(f.queue.getState().jobs.length, 0);
+});
+
 test('manual AI edits win over an in-flight generated note, and deletion stays deleted after reopening', async (t) => {
   let finish;
   const f = await fixture({ analyze: () => new Promise((resolve) => { finish = resolve; }) });

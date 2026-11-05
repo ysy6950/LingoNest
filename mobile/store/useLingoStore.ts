@@ -60,27 +60,17 @@ export type WordGroup = {
 };
 
 export const DEFAULT_GROUP_ID = 1;
-export const UNGROUPED_GROUP_ID = 0;
 
-const STORAGE_KEY = 'lingonest.v3';
+const GUEST_STORAGE_KEY = 'lingonest.v3';
 const PREVIOUS_STORAGE_KEY = 'lingonest.v2';
-const LATEST_RECOVERY_KEY = 'lingonest.pre-restore.latest';
+const GUEST_RECOVERY_KEY = 'lingonest.pre-restore.latest';
 const LEGACY_CARDS_KEY = 'lingonest.cards';
 const LEGACY_GROUPS_KEY = 'lingonest.groups';
-const LEGACY_DEMO_SEEDED_KEY = 'lingonest.demo-seeded';
 const SAVE_ERROR = '保存失败，请检查设备存储后重试。';
 
 const SYSTEM_GROUPS: WordGroup[] = [
   { id: DEFAULT_GROUP_ID, name: '默认组' },
-  { id: UNGROUPED_GROUP_ID, name: '未分组' },
 ];
-
-const DEMO_WORDS = [
-  { id: -1, word: 'persist', meaning: 'to continue doing something' },
-  { id: -2, word: 'resilient', meaning: 'able to recover quickly after difficulties' },
-  { id: -3, word: 'consistent', meaning: 'reliable and steady over time' },
-  { id: -4, word: 'immerse', meaning: 'to become deeply involved in something' },
-] as const;
 
 export type Snapshot = {
   version: 3;
@@ -103,11 +93,13 @@ type LingoState = {
   isRestoring: boolean;
   error: string | null;
   hydrate: () => Promise<void>;
+  activateNamespace: (namespace: string) => Promise<boolean>;
+  copyGuestToCurrent: () => Promise<boolean>;
   retrySave: () => Promise<boolean>;
   waitForSave: () => Promise<boolean>;
   exportSnapshot: () => Snapshot | null;
   latestRecoverySnapshot: () => Promise<Snapshot | null>;
-  restoreFromBackup: (raw: unknown, expectedLocal: string) => Promise<RestoreResult>;
+  restoreFromBackup: (raw: unknown, expectedLocal: string, expectedNamespace?: string) => Promise<RestoreResult>;
   addCard: (word: string, meaning: string, groupId: number) => number | null;
   addRecommendedCard: (sourceId: number, expectedWord: string, expectedMeaning: string, word: string, meaning: string, groupId: number) => number | null;
   editCard: (cardId: number, word: string, meaning: string) => boolean;
@@ -117,6 +109,8 @@ type LingoState = {
   deleteCard: (cardId: number) => void;
   moveCard: (cardId: number, groupId: number) => void;
   addGroup: (name: string) => number | null;
+  renameGroup: (groupId: number, name: string) => boolean;
+  deleteGroup: (groupId: number) => boolean;
   selectGroup: (groupId: number) => void;
   answerReview: (cardId: number, result: ReviewResult, nowMs?: number) => void;
 };
@@ -124,6 +118,10 @@ type LingoState = {
 let hydrationPromise: Promise<void> | null = null;
 let writeQueue: Promise<void> = Promise.resolve();
 let latestSaveRevision = 0;
+let activeNamespace = 'guest';
+const storageKey = () => activeNamespace === 'guest' ? GUEST_STORAGE_KEY : `lingonest.account.${activeNamespace}.v3`;
+const recoveryPointerKey = () => activeNamespace === 'guest' ? GUEST_RECOVERY_KEY : `lingonest.account.${activeNamespace}.pre-restore.latest`;
+export const accountNamespace = (serverId: string, userId: string) => `${serverId}.${userId}`;
 
 /** The v3 snapshot is saved before hydration is exposed to the UI. */
 export const useLingoStore = create<LingoState>((set, get) => {
@@ -134,6 +132,7 @@ export const useLingoStore = create<LingoState>((set, get) => {
 
   function saveCurrentState(): Promise<boolean> {
     const snapshot = currentSnapshot();
+    const key = storageKey();
     const revision = ++latestSaveRevision;
     set({ isSaving: true });
 
@@ -141,7 +140,7 @@ export const useLingoStore = create<LingoState>((set, get) => {
     // newer one. A failed write does not prevent the next action from retrying.
     writeQueue = writeQueue
       .catch(() => undefined)
-      .then(() => AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot)));
+      .then(() => AsyncStorage.setItem(key, JSON.stringify(snapshot)));
     return writeQueue.then(
       () => {
         if (revision === latestSaveRevision) set({ isSaving: false, error: null });
@@ -172,19 +171,20 @@ export const useLingoStore = create<LingoState>((set, get) => {
       set({ isHydrating: true, error: null });
       hydrationPromise = (async () => {
         try {
-          const storedV3 = await AsyncStorage.getItem(STORAGE_KEY);
-          const storedV2 = storedV3 === null ? await AsyncStorage.getItem(PREVIOUS_STORAGE_KEY) : null;
+          const key = storageKey();
+          const storedV3 = await AsyncStorage.getItem(key);
+          const storedV2 = activeNamespace === 'guest' && storedV3 === null ? await AsyncStorage.getItem(PREVIOUS_STORAGE_KEY) : null;
           let snapshot: Snapshot;
 
           if (storedV3 !== null) {
             snapshot = readSnapshot(storedV3);
           } else if (storedV2 !== null) {
             snapshot = readSnapshot(storedV2);
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+            await AsyncStorage.setItem(key, JSON.stringify(snapshot));
           } else {
-            snapshot = await migrateLegacyData();
+            snapshot = activeNamespace === 'guest' ? await migrateLegacyData() : { version: 3, cards: [], groups: SYSTEM_GROUPS, reviews: {}, selectedGroupId: DEFAULT_GROUP_ID };
             // Keep the old keys as recovery copies. Migration is safe to retry.
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+            await AsyncStorage.setItem(key, JSON.stringify(snapshot));
           }
 
           set({
@@ -213,6 +213,43 @@ export const useLingoStore = create<LingoState>((set, get) => {
       return hydrationPromise;
     },
 
+    activateNamespace: async (namespace) => {
+      if (!/^(?:guest|[0-9a-f-]{36}\.[0-9a-f-]{36})$/.test(namespace)) return false;
+      if (namespace === activeNamespace) return get().isHydrated;
+      if (hydrationPromise) await hydrationPromise;
+      if (get().isRestoring || !get().isHydrated || !await get().waitForSave()) return false;
+      const previousNamespace = activeNamespace;
+      activeNamespace = namespace;
+      latestSaveRevision++;
+      set({ cards: [], groups: SYSTEM_GROUPS, reviews: {}, selectedGroupId: DEFAULT_GROUP_ID,
+        isHydrated: false, isHydrating: false, isSaving: false, error: null });
+      await get().hydrate();
+      if (!get().isHydrated) {
+        activeNamespace = previousNamespace;
+        set({ isHydrated: false, error: null });
+        await get().hydrate();
+        return false;
+      }
+      return get().isHydrated;
+    },
+
+    copyGuestToCurrent: async () => {
+      if (activeNamespace === 'guest' || !get().isHydrated || get().isRestoring ||
+          get().cards.length !== 0 || get().groups.length !== 1 || !await get().waitForSave()) return false;
+      const namespace = activeNamespace;
+      try {
+        const raw = await AsyncStorage.getItem(GUEST_STORAGE_KEY);
+        if (!raw || namespace !== activeNamespace) return false;
+        const snapshot = readSnapshot(raw);
+        if (!snapshot.cards.length || get().cards.length || get().groups.length !== 1) return false;
+        await AsyncStorage.setItem(storageKey(), JSON.stringify(snapshot));
+        if (namespace !== activeNamespace) return false;
+        set({ cards: snapshot.cards, groups: snapshot.groups, reviews: snapshot.reviews,
+          selectedGroupId: snapshot.selectedGroupId, error: null });
+        return true;
+      } catch { set({ error: SAVE_ERROR }); return false; }
+    },
+
     retrySave: () => {
       if (!get().isHydrated || get().isRestoring) return Promise.resolve(false);
       // Read the current state, not the snapshot from the failed attempt.
@@ -226,10 +263,11 @@ export const useLingoStore = create<LingoState>((set, get) => {
     exportSnapshot: () => get().isHydrated ? readSnapshot(JSON.stringify(currentSnapshot())) : null,
 
     latestRecoverySnapshot: async () => {
-      const key = await AsyncStorage.getItem(LATEST_RECOVERY_KEY);
+      const namespace = activeNamespace;
+      const key = await AsyncStorage.getItem(recoveryPointerKey());
       if (!key) return null;
       const raw = await AsyncStorage.getItem(key);
-      if (!raw) return null;
+      if (!raw || namespace !== activeNamespace) return null;
       try {
         return readSnapshot(raw);
       } catch {
@@ -237,8 +275,8 @@ export const useLingoStore = create<LingoState>((set, get) => {
       }
     },
 
-    restoreFromBackup: async (raw, expectedLocal) => {
-      if (!get().isHydrated || get().isRestoring) return 'changed';
+    restoreFromBackup: async (raw, expectedLocal, expectedNamespace) => {
+      if (!get().isHydrated || get().isRestoring || (expectedNamespace && expectedNamespace !== activeNamespace)) return 'changed';
       let snapshot: Snapshot;
       try {
         snapshot = readSnapshot(JSON.stringify(raw));
@@ -248,17 +286,20 @@ export const useLingoStore = create<LingoState>((set, get) => {
       if (JSON.stringify(currentSnapshot()) !== expectedLocal) return 'changed';
 
       set({ isRestoring: true });
+      const namespace = activeNamespace;
       try {
         // All pending local writes finish before replacing the current copy.
         await writeQueue.catch(() => undefined);
-        if (JSON.stringify(currentSnapshot()) !== expectedLocal) return 'changed';
+        if (namespace !== activeNamespace || (expectedNamespace && expectedNamespace !== activeNamespace) || JSON.stringify(currentSnapshot()) !== expectedLocal) return 'changed';
 
         // Keep a recovery copy even when the backup data is valid. A failed
         // write leaves the current v2 snapshot untouched.
-        const recoveryKey = `lingonest.pre-restore.${Date.now()}.${Math.random().toString(36).slice(2)}`;
-        await AsyncStorage.setItem(recoveryKey, expectedLocal);
-        await AsyncStorage.setItem(LATEST_RECOVERY_KEY, recoveryKey);
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+        const copyKey = activeNamespace === 'guest'
+          ? `lingonest.pre-restore.${Date.now()}.${Math.random().toString(36).slice(2)}`
+          : `lingonest.account.${namespace}.pre-restore.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+        await AsyncStorage.setItem(copyKey, expectedLocal);
+        await AsyncStorage.setItem(recoveryPointerKey(), copyKey);
+        await AsyncStorage.setItem(storageKey(), JSON.stringify(snapshot));
         set({
           cards: snapshot.cards,
           groups: snapshot.groups,
@@ -405,6 +446,30 @@ export const useLingoStore = create<LingoState>((set, get) => {
       return id;
     },
 
+    renameGroup: (groupId, name) => {
+      const current = get();
+      const nextName = name.trim();
+      if (!current.isHydrated || current.isRestoring || groupId === DEFAULT_GROUP_ID ||
+          !nextName || !current.groups.some((group) => group.id === groupId) ||
+          current.groups.some((group) => group.id !== groupId && group.name.toLocaleLowerCase() === nextName.toLocaleLowerCase())) return false;
+      set({ groups: current.groups.map((group) => group.id === groupId ? { ...group, name: nextName } : group) });
+      void saveCurrentState();
+      return true;
+    },
+
+    deleteGroup: (groupId) => {
+      const current = get();
+      if (!current.isHydrated || current.isRestoring || groupId === DEFAULT_GROUP_ID ||
+          !current.groups.some((group) => group.id === groupId)) return false;
+      set({
+        groups: current.groups.filter((group) => group.id !== groupId),
+        cards: current.cards.map((card) => card.groupId === groupId ? { ...card, groupId: DEFAULT_GROUP_ID } : card),
+        selectedGroupId: current.selectedGroupId === groupId ? DEFAULT_GROUP_ID : current.selectedGroupId,
+      });
+      void saveCurrentState();
+      return true;
+    },
+
     selectGroup: (groupId) => {
       const current = get();
       if (
@@ -461,10 +526,9 @@ function readSnapshot(raw: string): Snapshot {
 }
 
 async function migrateLegacyData(): Promise<Snapshot> {
-  const [rawCards, rawGroups, demoSeeded] = await Promise.all([
+  const [rawCards, rawGroups] = await Promise.all([
     AsyncStorage.getItem(LEGACY_CARDS_KEY),
     AsyncStorage.getItem(LEGACY_GROUPS_KEY),
-    AsyncStorage.getItem(LEGACY_DEMO_SEEDED_KEY),
   ]);
 
   const parsedCards: unknown = rawCards === null ? [] : JSON.parse(rawCards);
@@ -493,27 +557,6 @@ async function migrateLegacyData(): Promise<Snapshot> {
   parsedCards.forEach((oldCard, index) => {
     reviews[cards[index].id] = migrateLegacyReview(oldCard);
   });
-
-  // The previous build used this marker to add sample words once. Honour it
-  // so a user who deleted the samples does not see them reappear.
-  if (demoSeeded !== 'true') {
-    const existingWords = new Set(cards.map((card) => card.word.trim().toLocaleLowerCase()));
-    const usedIds = new Set(cards.map((card) => card.id));
-    for (const demo of DEMO_WORDS) {
-      if (existingWords.has(demo.word)) continue;
-      let id: number = demo.id;
-      while (usedIds.has(id)) id -= 1;
-      usedIds.add(id);
-      cards.push({
-        id,
-        word: demo.word,
-        meaning: demo.meaning,
-        groupId: DEFAULT_GROUP_ID,
-        createdAt: Date.now(),
-      });
-      reviews[id] = { ...INITIAL_REVIEW_STATE };
-    }
-  }
 
   const groups = normalizeGroups(parsedGroups.map(readGroup), cards);
   return {
@@ -585,7 +628,9 @@ function readGroup(value: unknown): WordGroup {
 function normalizeGroups(groups: WordGroup[], cards: WordCard[]): WordGroup[] {
   const result: WordGroup[] = [];
   for (const group of groups) {
-    if (!result.some((existing) => existing.id === group.id)) result.push(group);
+    if (!result.some((existing) => existing.id === group.id)) {
+      result.push(group.id === DEFAULT_GROUP_ID ? SYSTEM_GROUPS[0] : group);
+    }
   }
   for (const systemGroup of SYSTEM_GROUPS) {
     if (!result.some((group) => group.id === systemGroup.id)) result.push(systemGroup);

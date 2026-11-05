@@ -8,9 +8,10 @@ import { colors } from '../components/theme';
 import { AutoEnrichmentRunner } from '../components/AutoEnrichmentRunner';
 import { useAutoEnrichment } from '../store/useAutoEnrichment';
 import { useComputerConnection } from '../store/useComputerConnection';
+import { useAccountSession } from '../store/useAccountSession';
+import { accountNamespace } from '../store/useLingoStore';
 
 export default function RootLayout() {
-  const hydrate = useLingoStore((state) => state.hydrate);
   const isHydrated = useLingoStore((state) => state.isHydrated);
   const isHydrating = useLingoStore((state) => state.isHydrating);
   const error = useLingoStore((state) => state.error);
@@ -18,20 +19,23 @@ export default function RootLayout() {
   const isRestoring = useLingoStore((state) => state.isRestoring);
   const retrySave = useLingoStore((state) => state.retrySave);
   const enrichmentReady = useAutoEnrichment((state) => state.isHydrated || state.error !== null);
+  const accountReady = useAccountSession((state) => state.ready);
+  const accountError = useAccountSession((state) => state.error);
+  const activeAccount = useAccountSession((state) => state.active);
+  const scope = activeAccount ? accountNamespace(activeAccount.serverId, activeAccount.account.id) : 'guest';
 
   useEffect(() => {
-    void hydrate();
-    void useAutoEnrichment.getState().hydrate();
     void useComputerConnection.getState().hydrate();
-  }, [hydrate]);
+    void useAccountSession.getState().hydrate();
+  }, []);
 
-  if (!isHydrated || !enrichmentReady) {
+  if (!isHydrated || !enrichmentReady || !accountReady) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
-        {isHydrating || !error ? <ActivityIndicator size="large" color={colors.primary} /> : null}
-        <Text style={{ marginTop: 16, color: colors.muted }}>{error ? '暂时无法打开单词本' : '正在打开你的单词本…'}</Text>
-        {error ? <Text style={{ color: colors.danger, marginTop: 8 }}>{error}</Text> : null}
-        {error ? <Pressable onPress={() => void hydrate()} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 22, paddingVertical: 12, marginTop: 20 }}><Text style={{ color: colors.white, fontWeight: '700' }}>重试读取</Text></Pressable> : null}
+        {isHydrating || !(error || accountError) ? <ActivityIndicator size="large" color={colors.primary} /> : null}
+        <Text style={{ marginTop: 16, color: colors.muted }}>{error || accountError ? '暂时无法打开单词本' : '正在打开你的单词本…'}</Text>
+        {error || accountError ? <Text style={{ color: colors.danger, marginTop: 8 }}>{error || accountError}</Text> : null}
+        {error || accountError ? <Pressable onPress={() => void useAccountSession.getState().hydrate()} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 22, paddingVertical: 12, marginTop: 20 }}><Text style={{ color: colors.white, fontWeight: '700' }}>重试读取</Text></Pressable> : null}
       </View>
     );
   }
@@ -40,8 +44,8 @@ export default function RootLayout() {
     <SafeAreaProvider>
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style="dark" />
-      <AutoEnrichmentRunner />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+      <AutoEnrichmentRunner key={`runner:${scope}`} />
+      <Stack key={`navigation:${scope}`} screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="groups/[id]" />
         <Stack.Screen name="cards/[id]" />
@@ -51,6 +55,7 @@ export default function RootLayout() {
         <Stack.Screen name="local-server" />
         <Stack.Screen name="local-backup" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="account" />
       </Stack>
       {error ? (
         <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>

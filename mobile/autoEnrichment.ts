@@ -62,7 +62,8 @@ export function startAutoEnrichment({ lingo, queue, connection, dictionary, anal
       if (!card || !matchesEnrichmentSource(job, card)) return;
       if (needsEnrichment(card, kind)) {
         const targetConnection = connection.getState();
-        const captured = { address: targetConnection.address, token: targetConnection.token };
+        const captured = { address: targetConnection.address, token: targetConnection.token,
+          ...(targetConnection.authMode === 'account' ? { authMode: 'account' as const } : {}) };
         const result = kind === 'dictionary' ? await dictionary(captured, job.word) : await analyze(captured, job.word, job.meaning);
         if (!current()) return;
         card = lingo.getState().cards.find((item) => item.id === job.cardId);

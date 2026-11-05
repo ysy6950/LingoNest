@@ -29,6 +29,7 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+!assets/lingonest-lan-ca.pem
 
 # local env files
 .env*.local

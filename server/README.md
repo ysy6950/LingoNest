@@ -34,6 +34,37 @@ npm.cmd test
 
 PowerShell 在某些 Windows 电脑上会拦截 `npm.ps1`，导致直接输入 `npm` 报执行策略错误。使用 `npm.cmd` 调用同一个 npm 即可，不需要改变系统执行策略。
 
+## 5.1a：局域网 HTTPS 测试模式
+
+0.5.2 起的 Android 测试包只向私有 IPv4 发起 HTTPS 请求。首次准备时，先用 `ipconfig` 找到电脑当前的 WLAN IPv4。在 `server/` 执行（把示例 IP 换成当前实际 IP）：
+
+```powershell
+npm.cmd run tls:generate -- 192.168.1.20
+$env:LINGONEST_LAN_IP = '192.168.1.20'
+$env:LINGONEST_LAN_BACKUP = '1'
+$env:LINGONEST_LAN_TLS = '1'
+$env:PORT = '3001'
+npm.cmd start
+```
+
+生成证书需要电脑能运行 `openssl`。启动后终端应显示 `https://你的电脑IP:3001/health` 和本次临时配对码。手机在设置页填写 `https://你的电脑IP:3001`。新 APK 内置的只有公开 CA 证书；CA 私钥和服务私钥在被 Git 忽略的 `server/data/tls/`，不要上传或发送给别人。电脑 IP 改变时重新执行 `tls:generate` 并重启；CA 私钥不变，通常无需重新构建 APK。若丢失 CA 私钥，必须建立新 CA 并更新 APK。证书过期也需重新签发。
+
+这一步只加密手机和电脑之间的连接，仍使用原来的临时配对码与单份电脑备份，尚无用户隔离。旧 APK 的明文连接说明是历史操作方法；新 APK 不接受 `http://` 地址。升级安装前先用旧 App 备份并核对时间；不要卸载或清除手机数据。具体回归见 [5.1a 验收清单](../docs/testing/PHASE_5_1A_TEST_PLAN.md)。
+
+## 5.1b：后端账号与权限
+
+当前已实现后端账号接口，手机 5.1c 源码也已接入；**已构建的 0.5.2 APK 仍只会使用临时配对码**。新版账号 APK 通过 Android 真机验证前，不要在日常服务中设置 `LINGONEST_ACCOUNTS=1`，否则旧手机的备份、AI 和词典请求会返回 401。关闭账号开关仍按原配对码模式工作，旧电脑备份和手机资料不迁移、不删除。
+
+账号模式仅允许同一局域网的 HTTPS，并要求已有 5.1a 证书。在 `server/` PowerShell 设置 `$env:LINGONEST_LAN_IP`、`$env:LINGONEST_LAN_BACKUP='1'`、`$env:LINGONEST_LAN_TLS='1'`，再设置 `$env:LINGONEST_ACCOUNTS='1'` 并运行 `npm.cmd start`。缺少任何前提会拒绝启动。`GET /health` 返回 `mode: lan-accounts`；除健康检查外，备份、AI、词典、管理接口都需要有效账号会话。登录密码、一次性邀请码和会话令牌不进入 Git；数据库只保存带盐的密码校验值和令牌摘要。
+
+电脑主人在 `server/` 运行 `npm.cmd run accounts -- invite-admin`，得到一次性、7 天有效的管理员邀请码；第一次管理员注册后不能再用本机命令创建新管理员邀请码。普通邀请码可由管理员登录后调用 `POST /admin/invitations`，或在电脑本地运行 `npm.cmd run accounts -- invite-member`。邀请码只私下交给对应的人；不要截图、提交或贴进聊天。用户用邀请码、用户名（3～24 位小写字母/数字/下划线，首位字母）、显示名和至少 10 字符密码调用 `POST /auth/register`，然后通过 `POST /auth/login` 获取 30 天有效、可撤销的会话令牌。后端从令牌确定身份，不接受请求体伪造用户 ID。`POST /auth/logout` 撤销当前会话；`POST /auth/password` 修改密码并撤销该账号所有会话；`PATCH /auth/profile` 修改显示名。
+
+电脑主人忘记密码时运行 `npm.cmd run accounts -- reset 用户名`，生成 30 分钟有效、用一次即失效的重置凭据，使用 `POST /auth/reset-password` 设置新密码。管理员还可通过 `POST /admin/accounts/:id/reset` 为成员生成凭据。不要把密码作为命令行参数传递。账号凭据仅在局域网 HTTPS 或服务器本机回环地址上传输；后者只用于电脑本地测试。
+
+每个账号的 `GET/PUT /backup` 分别读写 `account_backups` 中自己的快照和版本号，仍需 `expectedServerId` 与 `expectedRevision`，不会自动同步。旧 `backup(id=1)` 原样保留且账号接口无法读取。电脑主人先用 `npm.cmd run accounts -- list` 确认账号，再从旧配对模式读取备份的 `serverId` 和 revision，明确决定后才运行 `npm.cmd run accounts -- claim-legacy 管理员用户名 serverId 版本号`。只允许复制给本机管理员且目标账号还没有备份；旧备份原件保留，重复认领或版本不匹配会失败。手机游客资料迁入属于 5.1c，不能用此命令代替。
+
+`GET /ai/usage` 只显示当前账号的内存统计；相同请求在不同账号间不共用 AI 缓存；全局仍最多同时处理两个 AI 任务。`DELETE /ai/cache` 会清除全局缓存，仅管理员可执行。词典结果属于公开词汇资料，但请求仍必须登录。当前 SQLite 是一份文件，文件持有人能读取备份内容；账号权限保护的是后端 API，不提供电脑磁盘加密。详细接口和回归见 [5.1b 验收清单](../docs/testing/PHASE_5_1B_TEST_PLAN.md)。
+
 ## 验证备份确实落盘
 
 保持服务运行，在另一个 PowerShell 窗口执行：

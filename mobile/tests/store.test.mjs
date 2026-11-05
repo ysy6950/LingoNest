@@ -78,7 +78,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 test('confirmed related words reuse v3 storage and review; duplicate and stale confirmations do not write', async () => {
   const storage = device();
   const store = await openStore(storage);
-  const source = store.getState().cards[0];
+  const sourceId = store.getState().addCard('calm', '镇静的', 1);
+  const source = store.getState().cards.find((card) => card.id === sourceId);
   const group = store.getState().addGroup('拓展词汇');
   const add = (word = 'keep calm', meaning = '保持镇静') => store.getState().addRecommendedCard(source.id, source.word, source.meaning, word, meaning, group);
   const count = store.getState().cards.length;
@@ -124,7 +125,7 @@ test('legacy cards, groups, and known/unknown answers migrate into a recoverable
   assert.equal(saved.cards[2].groupId, 1);
   assert.ok(saved.groups.some((group) => group.id === 7 && group.name === '阅读'));
   assert.ok(saved.groups.some((group) => group.id === 1 && group.name === '默认组'));
-  assert.ok(saved.groups.some((group) => group.id === 0 && group.name === '未分组'));
+  assert.equal(saved.groups.some((group) => group.id === 0), false, 'no extra system group is created');
   assert.deepEqual(saved.reviews[101], {
     stage: 1,
     dueAt: Date.parse(REVIEWED_AT) + DAY_MS,
@@ -138,19 +139,19 @@ test('legacy cards, groups, and known/unknown answers migrate into a recoverable
   assert.equal(storage.data.get('lingonest.cards'), JSON.stringify(oldCards), 'old data remains as a recovery copy');
 });
 
-test('fresh install seeds demo words once, including after a fresh store reopens', async () => {
+test('fresh install starts empty and remains empty after reopening', async () => {
   const storage = device();
   const first = await openStore(storage);
   const initialIds = first.getState().cards.map((card) => card.id);
 
-  assert.deepEqual(first.getState().cards.map((card) => card.word), [
-    'persist', 'resilient', 'consistent', 'immerse',
-  ]);
+  assert.deepEqual(first.getState().cards, []);
+  assert.deepEqual(first.getState().groups, [{ id: 1, name: '默认组' }]);
   await first.getState().hydrate();
   assert.deepEqual(first.getState().cards.map((card) => card.id), initialIds);
 
   const reopened = await openStore(storage);
   assert.deepEqual(reopened.getState().cards.map((card) => card.id), initialIds);
+  assert.deepEqual(reopened.getState().groups, [{ id: 1, name: '默认组' }]);
   assert.equal(storage.writes.filter((write) => write.key === 'lingonest.v3').length, 1);
 });
 
@@ -164,13 +165,13 @@ test('add, edit, move, answer, and delete persist the current cards and separate
   assert.equal(typeof cardId, 'number');
   assert.equal(store.getState().cards.find((card) => card.id === cardId).word, 'achieve');
   assert.equal(store.getState().editCard(cardId, ' accomplished ', ' 已完成的 '), true);
-  store.getState().moveCard(cardId, 0);
+  store.getState().moveCard(cardId, 1);
   store.getState().answerReview(cardId, 'remembered', Date.parse(REVIEWED_AT));
   await waitForSave(store);
 
   let saved = storage.snapshot();
   assert.equal(saved.cards.find((card) => card.id === cardId).meaning, '已完成的');
-  assert.equal(saved.cards.find((card) => card.id === cardId).groupId, 0);
+  assert.equal(saved.cards.find((card) => card.id === cardId).groupId, 1);
   assert.equal(saved.groups.find((group) => group.id === groupId).name, '考试');
   assert.equal(saved.reviews[cardId].dueAt, Date.parse(REVIEWED_AT) + DAY_MS);
   assert.equal(saved.reviews[cardId].reviewCount, 1);
@@ -180,6 +181,78 @@ test('add, edit, move, answer, and delete persist the current cards and separate
   saved = storage.snapshot();
   assert.equal(saved.cards.some((card) => card.id === cardId), false);
   assert.equal(saved.reviews[cardId], undefined);
+});
+
+test('group management protects the default group and rejects invalid names or missing groups', async () => {
+  const storage = device();
+  const store = await openStore(storage);
+  const first = store.getState().addGroup('Reading');
+  const second = store.getState().addGroup('Travel');
+  await waitForSave(store);
+  const before = store.getState().exportSnapshot();
+  const writesBefore = storage.writes.length;
+  assert.equal(store.getState().renameGroup(1, 'Changed'), false);
+  assert.equal(store.getState().deleteGroup(1), false);
+  assert.equal(store.getState().renameGroup(first, '  '), false);
+  assert.equal(store.getState().renameGroup(first, ' travel '), false);
+  assert.equal(store.getState().renameGroup(first, '默认组'), false);
+  assert.equal(store.getState().renameGroup(-999, 'Missing'), false);
+  assert.equal(store.getState().deleteGroup(-999), false);
+  assert.deepEqual(store.getState().exportSnapshot(), before);
+  assert.equal(storage.writes.length, writesBefore);
+  assert.equal(store.getState().renameGroup(first, '  Books  '), true);
+  await waitForSave(store);
+  const reopened = await openStore(storage);
+  assert.equal(reopened.getState().groups.find((group) => group.id === first).name, 'Books');
+  assert.equal(reopened.getState().groups.find((group) => group.id === second).name, 'Travel');
+});
+
+test('deleting a group moves its words to default and preserves notes, pronunciation and review after reopening', async () => {
+  const storage = device();
+  const store = await openStore(storage);
+  const group = store.getState().addGroup('Reading');
+  const card = store.getState().addCard('learn', '学习', group);
+  const other = store.getState().addCard('calm', '平静', 1);
+  store.getState().selectGroup(group);
+  store.getState().saveAiNote(card, 'learn', '学习', { definition: 'gain knowledge', chineseHint: '学习', examples: ['I learn every day.'] });
+  store.getState().savePronunciation(card, 'learn', { ipa: 'test', partOfSpeech: 'verb' });
+  store.getState().answerReview(card, 'remembered', Date.parse(REVIEWED_AT));
+  await waitForSave(store);
+  const before = store.getState().exportSnapshot();
+  assert.equal(store.getState().deleteGroup(group), true);
+  await waitForSave(store);
+  const reopened = await openStore(storage);
+  const after = reopened.getState().exportSnapshot();
+  assert.deepEqual(after.cards, before.cards.map((item) => item.id === card ? { ...item, groupId: 1 } : item));
+  assert.deepEqual(after.reviews, before.reviews);
+  assert.equal(after.cards.some((item) => item.id === other), true);
+  assert.deepEqual(after.groups, [{ id: 1, name: '默认组' }]);
+  assert.equal(after.selectedGroupId, 1);
+  const empty = reopened.getState().addGroup('Empty');
+  reopened.getState().selectGroup(1);
+  assert.equal(reopened.getState().deleteGroup(empty), true);
+  assert.equal(reopened.getState().selectedGroupId, 1);
+  await waitForSave(reopened);
+});
+
+test('old ungrouped data remains an ordinary manageable group and restore cannot rename default', async () => {
+  const snapshot = { version: 3,
+    cards: [{ id: 7, word: 'old', meaning: '旧的', groupId: 0, createdAt: 100 }],
+    groups: [{ id: 1, name: 'Old default label' }, { id: 0, name: '未分组' }], reviews: {}, selectedGroupId: 0 };
+  const storage = device({ 'lingonest.v3': JSON.stringify(snapshot) });
+  const store = await openStore(storage);
+  assert.equal(store.getState().groups.find((group) => group.id === 1).name, '默认组');
+  assert.equal(store.getState().cards[0].groupId, 0);
+  assert.equal(store.getState().renameGroup(0, '旧词'), true);
+  await waitForSave(store);
+  const local = JSON.stringify(store.getState().exportSnapshot());
+  assert.equal(await store.getState().restoreFromBackup(snapshot, local), 'restored');
+  assert.equal(store.getState().groups.find((group) => group.id === 1).name, '默认组');
+  assert.equal(store.getState().deleteGroup(0), true);
+  await waitForSave(store);
+  const reopened = await openStore(storage);
+  assert.deepEqual(reopened.getState().groups, [{ id: 1, name: '默认组' }]);
+  assert.equal(reopened.getState().cards[0].groupId, 1);
 });
 
 test('a failed save reports an error and retrySave writes the latest in-memory state', async () => {
@@ -436,4 +509,44 @@ test('saved flat audio URLs repair on reopen and backup restore without losing l
   const outcome = await store.getState().restoreFromBackup(legacy, JSON.stringify(repaired));
   assert.equal(outcome, 'restored');
   assert.equal(storage.snapshot().cards[0].pronunciation.audioUrl, repaired.cards[0].pronunciation.audioUrl);
+});
+
+test('guest, A and B keep separate cards and recovery; a late restore cannot cross namespaces', async () => {
+  const storage = device();
+  const store = await openStore(storage);
+  const a = '11111111-1111-4111-8111-111111111111.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const b = '11111111-1111-4111-8111-111111111111.bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  store.getState().addCard('guestword', '游客', 1);
+  await store.getState().waitForSave();
+  assert.equal(await store.getState().activateNamespace(a), true);
+  assert.equal(store.getState().cards.length, 0);
+  store.getState().addCard('aliceword', '甲', 1);
+  await store.getState().waitForSave();
+  const aSnapshot = store.getState().exportSnapshot();
+  assert.equal(await store.getState().activateNamespace(b), true);
+  assert.equal(store.getState().cards.length, 0);
+  store.getState().addCard('bobword', '乙', 1);
+  await store.getState().waitForSave();
+  assert.equal(await store.getState().restoreFromBackup(aSnapshot, JSON.stringify(store.getState().exportSnapshot()), a), 'changed');
+  assert.equal(store.getState().cards[0].word, 'bobword');
+  assert.equal(await store.getState().activateNamespace(a), true);
+  assert.equal(store.getState().cards[0].word, 'aliceword');
+  assert.equal(await store.getState().activateNamespace('guest'), true);
+  assert.equal(store.getState().cards[0].word, 'guestword');
+  assert.ok(storage.data.has(`lingonest.account.${a}.v3`));
+  assert.ok(storage.data.has(`lingonest.account.${b}.v3`));
+});
+
+test('guest copying is explicit, retains the source and refuses a populated account', async () => {
+  const storage = device();
+  const store = await openStore(storage);
+  const a = '11111111-1111-4111-8111-111111111111.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  store.getState().addCard('learn', '学习', 1);
+  await store.getState().waitForSave();
+  await store.getState().activateNamespace(a);
+  assert.equal(await store.getState().copyGuestToCurrent(), true);
+  assert.equal(store.getState().cards[0].word, 'learn');
+  assert.equal(await store.getState().copyGuestToCurrent(), false);
+  await store.getState().activateNamespace('guest');
+  assert.equal(store.getState().cards[0].word, 'learn');
 });

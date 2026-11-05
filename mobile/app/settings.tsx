@@ -9,12 +9,14 @@ import { colors, spacing } from '../components/theme';
 import { checkComputerPairing } from '../localServer/pairing';
 import { ENRICHMENT_KINDS, useAutoEnrichment, type EnrichmentKind } from '../store/useAutoEnrichment';
 import { useComputerConnection, withComputerConnection } from '../store/useComputerConnection';
+import { useAccountSession } from '../store/useAccountSession';
 
 const labels = { dictionary: '自动补充词典资料', ai: '自动生成 AI 学习笔记' };
 
 export default function SettingsScreen() {
   const queue = useAutoEnrichment();
   const paired = useComputerConnection((state) => state.paired);
+  const activeAccount = useAccountSession((state) => state.active);
   const [consent, setConsent] = useState<EnrichmentKind | 'clear' | null>(null);
   const [busy, setBusy] = useState(false);
   const [connectionError, setConnectionError] = useState('');
@@ -51,8 +53,15 @@ export default function SettingsScreen() {
       </View>
       <View style={styles.section}>
         <Text style={styles.heading}>电脑连接</Text>
-        <ComputerConnectionFields disabled={busy} />
-        {!paired ? <AppButton label={busy ? '连接中…' : '连接电脑'} onPress={() => void connect()} disabled={busy} variant="secondary" /> : null}
+        {activeAccount ? <>
+          <Text style={styles.hint}>{activeAccount.address}</Text>
+          <Text style={styles.hint}>{paired ? '账号已连接；AI、词典与备份共用当前登录。' : '目前无法使用电脑功能；本机词库可继续离线学习。请到「我的」点击账号旁的「编辑」重新登录。'}</Text>
+        </> : <>
+          <ComputerConnectionFields disabled={busy} />
+          <Text style={styles.hint}>电脑地址会保存在手机；临时配对码只在本次打开 App 时保留。重新打开 App 或重启电脑服务后，在这里重新配对一次。</Text>
+          {!paired ? <AppButton label={busy ? '连接中…' : '连接电脑'} onPress={() => void connect()} disabled={busy} variant="secondary" /> : null}
+        </>}
+        <AppButton label="检查电脑连接" variant="secondary" onPress={() => router.push('/local-server')} />
         {connectionError ? <Text accessibilityRole="alert" style={styles.error}>{connectionError}</Text> : null}
       </View>
       <AiUsagePanel />

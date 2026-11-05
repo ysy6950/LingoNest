@@ -12,7 +12,7 @@ test('pairing checks server mode then authenticates without calling a paid provi
     return Response.json(calls.length === 1 ? health : { status: 'disabled' });
   });
   await checkComputerPairing(connection);
-  assert.equal(calls.length, 2); assert.equal(calls[1].url, 'http://192.168.1.20:3001/ai/status');
+  assert.equal(calls.length, 2); assert.equal(calls[1].url, 'https://192.168.1.20:3001/ai/status');
   assert.equal(calls[1].options.headers.authorization, `Bearer ${connection.token}`);
 });
 test('public addresses and invalid codes are rejected before any request', async (t) => {

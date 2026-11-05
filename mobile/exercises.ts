@@ -9,7 +9,7 @@ export function eligibleExerciseWords<T extends ExerciseWord>(cards: T[]): T[] {
   const seen = new Set<string>();
   return cards.filter((card) => {
     const key = normalizeWord(card.word);
-    if (!Number.isSafeInteger(card.id) || card.id <= 0 || card.word.length > 100 ||
+    if (!Number.isSafeInteger(card.id) || card.word.length > 100 ||
         !/^[a-zA-Z]+(?:[ '\u2019-][a-zA-Z]+)*$/.test(card.word.trim()) ||
         !card.meaning.trim() || card.meaning.length > 500 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(card.meaning) || seen.has(key)) return false;
     seen.add(key);

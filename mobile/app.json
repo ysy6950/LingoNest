@@ -3,29 +3,52 @@
     "name": "LingoNest",
     "slug": "lingonest",
     "scheme": "lingonest",
-    "version": "1.0.0",
+    "version": "0.5.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "plugins": [
       "expo-router",
-      "expo-audio",
-      "expo-asset"
+      [
+        "expo-audio",
+        {
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      "expo-asset",
+      "expo-secure-store",
+      "./withLanCa"
     ],
     "ios": {
       "supportsTablet": true
     },
     "android": {
+      "package": "com.ysy6950.lingonest",
+      "versionCode": 7,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "783e5e14-cd73-4b35-ae2d-1767452bf095"
+      }
     }
   }
 }

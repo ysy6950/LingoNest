@@ -15,7 +15,7 @@ export function ComputerConnectionFields({ disabled = false }: { disabled?: bool
       <Text style={styles.hint}>AI、词典和备份共用此连接。</Text>
       <AppButton label="更换或断开连接" compact variant="quiet" disabled={disabled} onPress={connection.disconnect} />
     </> : <>
-      <AppTextField label="电脑 IP 和端口" placeholder="例如 192.168.1.20:3001" value={connection.address}
+      <AppTextField label="电脑地址" placeholder="例如 https://192.168.1.20:3001" value={connection.address}
         editable={!disabled} autoCapitalize="none" autoCorrect={false} keyboardType="url" onChangeText={connection.setAddress} />
       <AppTextField label="临时配对码" placeholder="粘贴电脑终端显示的配对码" value={connection.token}
         editable={!disabled} autoCapitalize="none" autoCorrect={false} secureTextEntry onChangeText={connection.setToken}

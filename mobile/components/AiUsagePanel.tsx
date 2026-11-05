@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Modal, StyleSheet, Text, View } from 'react-native';
 import { aiFailureLabels, aiTaskLabels, clearAiCache, requestAiUsage, type AiUsage } from '../localServer/ai';
 import { useComputerConnection, withComputerConnection } from '../store/useComputerConnection';
+import { useAccountSession } from '../store/useAccountSession';
 import { AppButton } from './AppButton';
 import { colors, spacing } from './theme';
 
 export function AiUsagePanel() {
   const { address, token, paired } = useComputerConnection();
+  const account = useAccountSession((state) => state.active);
   const [usage, setUsage] = useState<AiUsage | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -62,7 +64,7 @@ export function AiUsagePanel() {
       </View>)}
       <Text style={styles.hint}>失败原因：{failures.length ? failures.map(([code, count]) => `${aiFailureLabels[code as keyof typeof aiFailureLabels]} ${count}`).join('；') : '暂无'}</Text>
       <Text style={styles.hint}>缓存 {usage.cache.entries} / {usage.cache.maxEntries} 条 · 有效期 {usage.cache.ttlMs / 3600000} 小时</Text>
-      <AppButton label="清理电脑 AI 缓存" variant="quiet" disabled={busy || !usage.cache.entries} onPress={() => setConfirm(true)} />
+      {(!account || account.account.role === 'admin') ? <AppButton label="清理电脑 AI 缓存" variant="quiet" disabled={busy || !usage.cache.entries} onPress={() => setConfirm(true)} /> : null}
       <Text style={styles.hint}>统计不含词典请求，费用以服务商账单为准。电脑服务重启后统计和缓存清空。</Text>
     </> : null}
     <Modal visible={confirm} transparent animationType="fade" onRequestClose={() => setConfirm(false)}>

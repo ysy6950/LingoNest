@@ -4,10 +4,10 @@ import { ActivityIndicator, Image, KeyboardAvoidingView, Modal, Platform, Pressa
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '../../components/AppButton';
 import { AppTextField } from '../../components/AppTextField';
-import { ComputerConnectionFields } from '../../components/ComputerConnectionFields';
+import { ComputerConnectionStatus } from '../../components/ComputerConnectionStatus';
 import { colors, radius, spacing } from '../../components/theme';
 import { normalizeWord, relationLabels, requestRelatedWords, wordFamilyLabels, type RelatedWord, type RelationCategory } from '../../localServer/ai';
-import { withComputerConnection } from '../../store/useComputerConnection';
+import { useComputerConnection, withComputerConnection } from '../../store/useComputerConnection';
 import { useLingoStore } from '../../store/useLingoStore';
 
 type Preview = { sourceWord: string; sourceMeaning: string; candidates: RelatedWord[] };
@@ -22,6 +22,7 @@ export default function RelatedWordsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const cardId = Number(id);
   const cards = useLingoStore((state) => state.cards);
+  const paired = useComputerConnection((state) => state.paired);
   const groups = useLingoStore((state) => state.groups);
   const addRecommendedCard = useLingoStore((state) => state.addRecommendedCard);
   const isSaving = useLingoStore((state) => state.isSaving);
@@ -120,8 +121,8 @@ export default function RelatedWordsScreen() {
         <Text style={styles.sectionTitle}>发现关联词</Text>
         <Text style={styles.body}>根据当前词义推荐，每类最多 2 项。先查看，再逐个选择加入。</Text>
         <Text style={styles.hint}>仅发送这个单词和原解释给 AI；候选词会交给词典核对词形。AI 对词义和关系的判断仍可能有误。</Text>
-        <ComputerConnectionFields disabled={busy} />
-        <AppButton label={busy ? '正在推荐并核对…' : preview ? '重新生成推荐' : '生成关联词'} disabled={busy} onPress={() => void generate()} />
+        <ComputerConnectionStatus />
+        <AppButton label={busy ? '正在推荐并核对…' : preview ? '重新生成推荐' : '生成关联词'} disabled={busy || !paired} onPress={() => void generate()} />
         {busy ? <ActivityIndicator color={colors.primary} /> : null}
         {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       </View>

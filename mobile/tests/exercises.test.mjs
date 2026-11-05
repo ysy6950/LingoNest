@@ -20,6 +20,12 @@ test('exercise eligibility filters duplicate spellings and unsupported input wit
   assert.equal(JSON.stringify(source), before);
 });
 
+test('historical sample cards with negative ids remain eligible for exercises', () => {
+  const samples = words.slice(0, 4).map((word, index) => ({ ...word, id: -index - 1 }));
+  assert.deepEqual(eligibleExerciseWords(samples), samples);
+  assert.equal(parseExerciseDrafts({ questions: [{ ...draft, cardId: -1 }] }, samples)[0].cardId, -1);
+});
+
 test('random selection picks four or five eligible distinct words without changing the source', () => {
   const source = [...words, { ...words[0], id: 99, word: ' LEARN ' }, { ...words[0], id: 100, meaning: '' }];
   const before = JSON.stringify(source);
@@ -85,7 +91,7 @@ test('exercise request sends only selected word fields to the paired computer an
   let calls = 0;
   t.mock.method(globalThis, 'fetch', async (url, init) => {
     calls++;
-    assert.equal(url, 'http://192.168.1.20:3001/ai/exercises');
+    assert.equal(url, 'https://192.168.1.20:3001/ai/exercises');
     assert.equal(init.headers.authorization, `Bearer ${connection.token}`);
     assert.deepEqual(JSON.parse(init.body), { words: words.map(({ id, word, meaning }) => ({ id, word, meaning })) });
     return { ok: true, status: 200, json: async () => ({ questions: calls === 1 ? [draft] : [{ ...draft, score: 100 }] }) };

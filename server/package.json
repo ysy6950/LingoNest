@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "tls:generate": "node generate-lan-certificate.mjs",
+    "accounts": "tsx src/accountsCli.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts"
   },

@@ -4,7 +4,7 @@ import { parseExerciseDrafts, type ExerciseWord, type ExerciseDraft } from '../e
 export { normalizeWord } from '../wordIdentity.ts';
 
 export type WordAnalysis = { definition: string; chineseHint: string; examples: string[] };
-export type AiConnection = { address: string; token?: string };
+export type AiConnection = { address: string; token?: string; authMode?: 'account' };
 export const aiTaskLabels = { analysis: '学习笔记', related: '关联词', exercise: '语境练习' };
 export const aiFailureLabels = { timeout: '等待超时', provider_error: '服务商或网络错误', provider_auth: '密钥或权限错误', provider_not_found: '接口或模型不存在', provider_rejected: '请求参数被拒绝', rate_limited: '服务商限流', invalid_response: '返回格式错误', unexpected_error: '其他错误' };
 type TaskUsage = { requests: number; providerRequests: number; cacheHits: number; coalesced: number; succeeded: number; failed: number; busyRejected: number };
@@ -181,7 +181,7 @@ async function requestAi<T>(connection: AiConnection, path: string, word: string
 async function requestAiPayload<T>(connection: AiConnection, path: string, payload: unknown, parse: (value: unknown) => T, timeoutMs: number, method = 'POST'): Promise<T> {
   const healthUrl = buildHealthUrl(connection.address);
   if (!healthUrl) throw new AiRequestError('address', '请输入电脑的局域网 IPv4 和端口。');
-  if (!connection.token || !/^[a-f0-9]{32}$/i.test(connection.token.trim())) throw new AiRequestError('auth', '请先输入当前电脑服务显示的配对码。');
+  if (!connection.token || !(connection.authMode === 'account' ? /^[A-Za-z0-9_-]{43}$/ : /^[a-f0-9]{32}$/i).test(connection.token.trim())) throw new AiRequestError('auth', '请先在设置中完成电脑连接或登录。');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -191,7 +191,7 @@ async function requestAiPayload<T>(connection: AiConnection, path: string, paylo
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
-    if (response.status === 401) throw new AiRequestError('auth', '配对码不正确或已过期。');
+    if (response.status === 401) throw new AiRequestError('auth', '连接凭证不正确或已过期，请重新登录或配对。');
     if (response.status === 404) throw new AiRequestError('mode', '电脑服务没有此接口，请更新并重启后端，确认使用配对模式。');
     if (path === '/ai/exercises' && response.status === 400) throw new AiRequestError('invalid_request', '请选择 4～5 个不同的英文单词，每个解释不超过 500 字符。');
     if (!response.ok) {

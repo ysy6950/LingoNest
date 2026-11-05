@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">LingoNest</title>
+  <desc id="desc">A vocabulary card and a growing nest illustrate an Android English learning app.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F5F7F4"/>
+      <stop offset="1" stop-color="#E5F2EB"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F4F8F3"/>
+    </linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="12" stdDeviation="15" flood-color="#18312F" flood-opacity=".13"/>
+    </filter>
+    <filter id="softShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="#18312F" flood-opacity=".10"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="360" rx="24" fill="url(#background)"/>
+  <circle cx="1113" cy="-18" r="196" fill="#D8EBDF" opacity=".65"/>
+  <circle cx="693" cy="347" r="134" fill="#FFFFFF" opacity=".38"/>
+  <circle cx="68" cy="314" r="63" fill="#D9ECE0" opacity=".45"/>
+
+  <g transform="translate(84 63)">
+    <circle cx="45" cy="45" r="44" fill="#246B58"/>
+    <path d="M22 55c13 11 33 13 47 0M27 64c12 9 28 10 40 0M32 72c9 5 21 5 30 0" fill="none" stroke="#F5F7F4" stroke-width="4" stroke-linecap="round"/>
+    <path d="M46 47V22" fill="none" stroke="#F5F7F4" stroke-width="4" stroke-linecap="round"/>
+    <path d="M46 37c-11-2-16-9-14-19 10 0 16 6 14 19ZM47 32c1-11 8-17 18-16 0 10-6 16-18 16Z" fill="#CB8747"/>
+  </g>
+
+  <text x="193" y="128" fill="#18312F" font-family="Segoe UI, Arial, sans-serif" font-size="70" font-weight="750" letter-spacing="-2">LingoNest</text>
+  <text x="91" y="203" fill="#425A56" font-family="Segoe UI, Arial, sans-serif" font-size="27" font-weight="500">Make every new word feel at home.</text>
+
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="650">
+    <rect x="91" y="243" width="139" height="40" rx="20" fill="#FFFFFF" stroke="#DDE7E0"/>
+    <text x="116" y="269" fill="#246B58">Capture</text>
+    <circle cx="201" cy="263" r="5" fill="#CB8747"/>
+    <rect x="242" y="243" width="133" height="40" rx="20" fill="#FFFFFF" stroke="#DDE7E0"/>
+    <text x="269" y="269" fill="#246B58">Review</text>
+    <circle cx="349" cy="263" r="5" fill="#CB8747"/>
+    <rect x="387" y="243" width="119" height="40" rx="20" fill="#FFFFFF" stroke="#DDE7E0"/>
+    <text x="414" y="269" fill="#246B58">Grow</text>
+    <circle cx="479" cy="263" r="5" fill="#CB8747"/>
+  </g>
+
+  <g transform="translate(785 60) rotate(-10 84 115)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="168" height="222" rx="21" fill="#FAFCF8" stroke="#DDE7E0" stroke-width="2"/>
+    <rect x="22" y="29" width="75" height="8" rx="4" fill="#DDE7E0"/>
+    <rect x="22" y="51" width="113" height="8" rx="4" fill="#E5F2EB"/>
+    <path d="M29 159c22-23 49-18 67-35 17-15 33-18 48-17" fill="none" stroke="#CB8747" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="29" cy="159" r="7" fill="#CB8747"/>
+    <circle cx="96" cy="124" r="7" fill="#CB8747"/>
+    <circle cx="144" cy="107" r="7" fill="#246B58"/>
+    <rect x="22" y="187" width="91" height="8" rx="4" fill="#DDE7E0"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="922" y="23" width="230" height="316" rx="34" fill="#18312F"/>
+    <rect x="929" y="30" width="216" height="302" rx="28" fill="#F5F7F4"/>
+    <rect x="1000" y="38" width="74" height="8" rx="4" fill="#18312F"/>
+    <text x="950" y="81" fill="#246B58" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">WORD CARD</text>
+    <rect x="948" y="100" width="178" height="169" rx="20" fill="url(#card)" stroke="#DDE7E0"/>
+    <circle cx="1093" cy="129" r="18" fill="#E5F2EB"/>
+    <path d="M1085 125h5l5-4v16l-5-4h-5zM1099 125c4 3 4 7 0 10" fill="none" stroke="#246B58" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="967" y="160" fill="#18312F" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="750">bloom</text>
+    <text x="969" y="185" fill="#667A75" font-family="Segoe UI, Arial, sans-serif" font-size="15">/bluːm/ · verb</text>
+    <path d="M968 205h136" stroke="#DDE7E0" stroke-width="2"/>
+    <text x="968" y="229" fill="#425A56" font-family="Segoe UI, Arial, sans-serif" font-size="15">to grow and flourish</text>
+    <rect x="950" y="283" width="174" height="30" rx="15" fill="#E5F2EB"/>
+    <text x="975" y="303" fill="#246B58" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="700">Review, remember, repeat</text>
+  </g>
+</svg>
